@@ -24,7 +24,7 @@ impl IdServiceImpl for AidService{
 }
 impl AidService{
 	pub fn new()->Self{
-		let counter = rand::rngs::StdRng::from_entropy().gen::<i16>();
+		let counter = rand::rngs::StdRng::from_os_rng().gen::<i16>();
 		Self{
 			counter:AtomicI16::new(counter),
 		}

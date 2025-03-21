@@ -1,6 +1,6 @@
-use std::sync::Mutex;
+use std::{sync::Mutex, time::SystemTime};
 
-use rand::{rngs::StdRng, SeedableRng};
+use rand::{rngs::StdRng, Rng, SeedableRng};
 
 use super::IdServiceImpl;
 
@@ -20,7 +20,11 @@ impl IdServiceImpl for UlidService{
 		let mut rng=self.rng.lock().unwrap();
 		let datetime=chrono::DateTime::from_timestamp_millis(time).unwrap();
 		let rng:&mut StdRng=&mut rng;
-		let id=ulid::Ulid::from_datetime_with_source(datetime.into(),rng);
+		let timestamp = SystemTime::from(datetime).duration_since(SystemTime::UNIX_EPOCH).unwrap_or(std::time::Duration::ZERO).as_millis();
+		let timebits = (timestamp & ((1 <<ulid::Ulid::TIME_BITS) - 1)) as u64;
+		let msb = timebits << 16 | u64::from(rng.random::<u16>());
+		let lsb = rng.random::<u64>();
+		let id=ulid::Ulid::from((msb, lsb));
 		id.to_string()
 	}
 	fn parse(&self,id: &str)->Option<i64> {
@@ -35,7 +39,7 @@ impl IdServiceImpl for UlidService{
 impl UlidService{
 	pub fn new()->Self{
 		Self{
-			rng:Mutex::new(StdRng::from_entropy()),
+			rng:Mutex::new(StdRng::from_os_rng()),
 		}
 	}
 }
