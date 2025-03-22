@@ -1,0 +1,5 @@
+/target/*
+/minio/*
+/dev_env/*
+/valkey/*
+/.config/*

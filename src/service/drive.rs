@@ -235,7 +235,7 @@ impl DriveService{
 			is_sensitive : sensitive,
 			md5,
 			size : size.min(i32::MAX.into()).try_into().unwrap(),
-			size_long : size,
+			//size_long : size,
 			name:detected_name,
 			mime_type:content_type,
 			stored_internal:false,
@@ -355,7 +355,8 @@ impl DriveService{
 		map.insert("name".into(),file.name.as_str().into());
 		map.insert("type".into(),file.mime_type.as_str().into());
 		map.insert("md5".into(),file.md5.as_str().into());
-		map.insert("size".into(),file.size_long.max(file.size as i64).into());
+//		map.insert("size".into(),file.size_long.max(file.size as i64).into());
+		map.insert("size".into(),file.size.into());
 		map.insert("isSensitive".into(),file.is_sensitive.into());
 		map.insert("blurhash".into(),file.blurhash.as_ref().map(|c|serde_json::Value::String(c.to_string())).unwrap_or(serde_json::Value::Null));
 		if is_my_file{
@@ -640,6 +641,7 @@ pub async fn calc_drive_usage_of(con:&mut DBConnection<'_>,user_id: &str)-> i64 
 	use bigdecimal::ToPrimitive;
 	use diesel::{ExpressionMethods, QueryDsl};
 	use diesel_async::RunQueryDsl;
+/*
 	//64bit拡張の値はすべて読む
 	let size_long_sum:Option<i64>=drive_file.filter(userId.eq(user_id)).filter(isLink.eq(false)).select(sum(size_long)).first::<Option<bigdecimal::BigDecimal>>(con).await.map_err(|e|{
 		eprintln!("{:?}",e);
@@ -649,6 +651,11 @@ pub async fn calc_drive_usage_of(con:&mut DBConnection<'_>,user_id: &str)-> i64 
 		eprintln!("{:?}",e);
 	}).ok().unwrap_or_default();
 	size_long_sum.unwrap_or(0)+size_sum.unwrap_or(0)
+*/
+	let size_sum:Option<i64>=drive_file.filter(userId.eq(user_id)).filter(isLink.eq(false)).select(sum(size)).first::<Option<i64>>(con).await.map_err(|e|{
+		eprintln!("{:?}",e);
+	}).ok().unwrap_or_default();
+	size_sum.unwrap_or(0)
 }
 fn validate_file_name(name: &str)-> bool {
 	return 

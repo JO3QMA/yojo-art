@@ -157,16 +157,16 @@ fn main() {
 	if !std::path::Path::new(&config_path).exists(){
 		let default_config=ConfigFile{
 			bind_addr: "0.0.0.0:12200".to_owned(),
-			public_base_url:"https://files.example.com/".to_owned(),
+			public_base_url:"https://files.example.com/files/".to_owned(),
 			prefix:"prefix".to_owned(),
 			thumbnail_filter:FilterType::Lanczos3,
 			thumbnail_quality:50f32,
 			part_max_size:20*1024*1024,
 			ffmpeg:Some("ffmpeg".to_owned()),
-			ffmpeg_base_url:Some("https://files.example.com/".to_owned()),
+			ffmpeg_base_url:Some("https://files.example.com/files/".to_owned()),
 			full_upload_limit:10*1024*1024,
 			s3:S3Config{
-				endpoint: "localhost:9000".to_owned(),
+				endpoint: "http://localhost:9000".to_owned(),
 				region: "us-east-1".to_owned(),
 				access_key: "example-user".to_owned(),
 				secret_key: "example-password".to_owned(),
@@ -202,7 +202,7 @@ fn main() {
 	let redis_for_pubsub=misskey_config.redis_for_pubsub.as_ref().map(|redis_for_pubsub|redis::Client::open(redis_for_pubsub.to_url()).unwrap());
 	let rt=tokio::runtime::Builder::new_multi_thread().enable_all().build().unwrap();
 	rt.block_on(async{
-		let redis=redis.get_multiplexed_tokio_connection().await.unwrap();
+		let redis=redis.get_multiplexed_tokio_connection().await.map_err(|e|println!("{:?}",e)).unwrap();
 		let redis_for_pubsub=match redis_for_pubsub{
 			Some(redis_for_pubsub)=>redis_for_pubsub.get_multiplexed_tokio_connection().await.ok(),
 			None=>None

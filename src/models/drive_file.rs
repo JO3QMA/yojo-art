@@ -11,7 +11,7 @@ diesel::table! {
 		name -> VarChar,
 		r#type -> VarChar,
 		size -> Int4,
-		size_long -> Int8,
+//		size_long -> Int8,
 		isLink -> Bool,
 		isSensitive -> Bool,
 		folderId -> Nullable<VarChar>,
@@ -47,7 +47,7 @@ pub struct MiDriveFile{
 	#[diesel(column_name = "type")]
 	pub mime_type:String,
 	pub size:i32,
-	pub size_long:i64,
+//	pub size_long:i64,
 	/**
 	 * 外部の(信頼されていない)URLへの直リンクか否か
 	 */

@@ -1,18 +1,103 @@
 version: "3"
 services:
+  yojo-art-rs:
+    build: .
+    restart: always
+    networks:
+      - internal_network
+      - external_network
+    volumes:
+      - ./files:/cherrypick/files
+      - ./.config:/cherrypick/.config:ro
+    links:
+      - db
+      - redis
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+  tunnel:
+    restart: always
+    image: cloudflare/cloudflared
+    command: tunnel run
+    networks:
+      - internal_network
+      - external_network
+    env_file:
+      - .config/tunnel.env
+  web:
+    image: ghcr.io/yojo-art/cherrypick:develop
+    restart: always
+    links:
+      - db
+      - redis
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - internal_network
+      - external_network
+    # env_file:
+    #   - .config/docker.env
+    volumes:
+      - ./files:/cherrypick/files
+      - ./.config:/cherrypick/.config:ro
+
+  redis:
+    restart: always
+    image: public.ecr.aws/bitnami/valkey:8.0
+    networks:
+      - internal_network
+      - external_network
+    volumes:
+      - ./valkey:/data
+    healthcheck:
+      test: "valkey-cli ping"
+      interval: 5s
+      retries: 20
+    environment:
+      - ALLOW_EMPTY_PASSWORD=yes
+
+  db:
+    restart: always
+    image: postgres:15-alpine
+    networks:
+      - internal_network
+      - external_network
+    env_file:
+      - .config/docker.env
+    volumes:
+      - ./db:/var/lib/postgresql/data
+    healthcheck:
+      test: "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"
+      interval: 5s
+      retries: 20
+  tunnel-minio:
+    restart: always
+    image: cloudflare/cloudflared
+    command: tunnel run
+    networks:
+      - internal_network
+      - external_network
+    env_file:
+      - .config/tunnel-minio.env
   minio-server:
     image: quay.io/minio/minio
     restart: always
-    environment:
-      - MINIO_ROOT_USER=afe1faf0-567f-461a-80f8-4ae682e2c910
-      - MINIO_ROOT_PASSWORD=6a610b06-80ee-4eb4-b0e0-4c696fde76ee
+    env_file:
+      - .config/docker.env
     command: server /data --console-address ":9001"
     volumes:
       - ./minio/:/data
     ports:
-      - "19520:9000"
       - "19521:9001"
     networks:
+      - internal_network
       - external_network
 networks:
+  internal_network:
+    internal: true
   external_network:
