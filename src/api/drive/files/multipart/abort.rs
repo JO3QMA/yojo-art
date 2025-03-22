@@ -3,10 +3,11 @@ use axum::{http::StatusCode, response::IntoResponse};
 use crate::Context;
 
 pub async fn post(
-		mut ctx:Context,
+		axum::extract::State(ctx): axum::extract::State<std::sync::Arc<Context>>,
 		request: axum::extract::Request,
 	)->axum::response::Response{
 	let authorization=request.headers().get("Authorization");
+	let mut ctx=ctx.as_ref().clone();
 	let (session,_hashed_sid)=match ctx.upload_session(authorization,true).await{
 		Ok(v)=>v,
 		Err(e)=>return e,

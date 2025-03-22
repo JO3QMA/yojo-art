@@ -14,11 +14,12 @@ pub struct RequestParams{
 	partnumber: u32,
 }
 pub async fn post(
-	mut ctx:Context,
+	axum::extract::State(ctx): axum::extract::State<std::sync::Arc<Context>>,
 	axum::extract::Query(parms):axum::extract::Query<RequestParams>,
 	request: axum::extract::Request,
 )->axum::response::Response{
 	let authorization=request.headers().get("Authorization").cloned();
+	let mut ctx=ctx.as_ref().clone();
 	let _=match ctx.upload_session(authorization.as_ref(),false).await{
 		Ok(v)=>v,
 		Err(e)=>return e,

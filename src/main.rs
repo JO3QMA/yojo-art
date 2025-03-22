@@ -230,8 +230,7 @@ fn main() {
 			misskey_config,
 		};
 		let http_addr:SocketAddr = arg_tup.config.bind_addr.parse().unwrap();
-		let app = Router::new();
-		let app=api::route(&arg_tup,app);
+		let app=api::endpoints::route(&arg_tup);
 		let listener = tokio::net::TcpListener::bind(&http_addr).await.unwrap();
 		println!("server loaded");
 		axum::serve(listener,app.into_make_service_with_connect_info::<SocketAddr>()).with_graceful_shutdown(shutdown_signal()).await.unwrap();

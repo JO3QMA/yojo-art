@@ -27,7 +27,7 @@ pub struct ResponseBody{
 	session_id:String,
 }
 pub async fn post(
-	mut ctx:Context,
+	axum::extract::State(ctx): axum::extract::State<std::sync::Arc<Context>>,
 	request: axum::extract::Request,
 )->axum::response::Response{
 	let min_size=5*1024*1024;//最小5MB
@@ -122,6 +122,7 @@ pub async fn post(
 	};
 	let mut header=axum::http::header::HeaderMap::new();
 	header.insert(axum::http::header::CONTENT_TYPE,"application/json".parse().unwrap());
+	let mut ctx=ctx.as_ref().clone();
 	if let Err(e)=ctx.redis.set_ex::<&String,String,()>(&format!("multipartUpload:{}",sid),session,ctx.config.session_ttl).await{
 		eprintln!("{}:{} {:?}",file!(),line!(),e);
 		res.allow_upload=false;

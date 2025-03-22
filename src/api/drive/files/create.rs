@@ -16,7 +16,7 @@ struct RequestParms{
 }
 
 pub async fn post(
-	ctx:Context,
+	axum::extract::State(ctx): axum::extract::State<std::sync::Arc<Context>>,
 	mut multipart: Multipart,
 )->axum::response::Response{
 	println!("full upload");

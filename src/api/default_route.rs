@@ -10,7 +10,7 @@ use tokio_util::io::StreamReader;
 use crate::Context;
 
 pub async fn post(
-	ctx:Context,
+	axum::extract::State(ctx): axum::extract::State<std::sync::Arc<Context>>,
 	request: axum::extract::Request,
 )->axum::response::Response{
 	let path=request.uri().path();
@@ -55,7 +55,7 @@ pub struct StreamingParams{
 	token:Option<String>,
 }
 pub async fn streaming(
-	ctx:Context,
+	axum::extract::State(ctx): axum::extract::State<std::sync::Arc<Context>>,
 	ws: WebSocketUpgrade,
 	axum::extract::Query(q):axum::extract::Query<StreamingParams>,
 )->axum::response::Response{
@@ -63,7 +63,7 @@ pub async fn streaming(
 }
 async fn handle_socket(
 	socket: axum::extract::ws::WebSocket,
-	ctx:Context,
+	ctx:Arc<Context>,
 	q:StreamingParams,
 ) {
 	let (sender, receiver) = socket.split();
@@ -87,7 +87,7 @@ async fn ws_read_side(
 	mut receiver: SplitStream<axum::extract::ws::WebSocket>,
 	sender_handle: tokio::task::AbortHandle,
 	mut backend_sender: SplitSink<reqwest_websocket::WebSocket, reqwest_websocket::Message>,
-	ctx:Context,
+	ctx:Arc<Context>,
 	ping_sync:Arc<AtomicI64>,
 ) {
 	//80秒pingが無ければ、接続が切れたと判定して処理を終了する
@@ -146,7 +146,7 @@ async fn ws_read_side(
 async fn ws_write_side(
 	mut sender: SplitSink<axum::extract::ws::WebSocket,axum::extract::ws::Message>,
 	mut backend_receiver: SplitStream<reqwest_websocket::WebSocket>,
-	ctx:Context,
+	ctx:Arc<Context>,
 	ping_sync:Arc<AtomicI64>,
 ) {
 	let timeout = std::time::Duration::from_secs(100);
@@ -192,7 +192,7 @@ async fn ws_write_side(
 	println!("exit ws_write_side");
 }
 pub async fn get(
-	ctx:Context,
+	axum::extract::State(ctx): axum::extract::State<std::sync::Arc<Context>>,
 	request: axum::extract::Request,
 )->axum::response::Response{
 	let path=request.uri().path();
