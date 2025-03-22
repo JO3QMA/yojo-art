@@ -5,7 +5,6 @@ edition = "2021"
 
 [dependencies]
 tokio-stream = "*"
-axum = { version = "0.7", features = ["ws","http2","multipart"] }
 tokio = { version = "1.0", features = ["rt-multi-thread","signal","process"] }
 tokio-util = { version = "0.7.8", features = ["io"] }
 futures = "0.3"
@@ -13,23 +12,12 @@ futures-util = { version = "0.3", default-features = false, features = ["sink", 
 headers = "^0.3.8"
 serde = {version="^1.0",features=["derive"]}
 serde_json ="1"
-image = {git="https://github.com/kozakura913/image.git",branch="main"}
-webp = { version = "0.3.0", default-features = false }
-resvg = {version="0.41",features = [ "text","memmap-fonts","raster-images" ] }
-rexif = "0.7"
-avif-decoder_dep = { path="./avif-decoder_dep" ,optional = true }
+serde_yaml = "0.9"
 chrono = "0.4"
-fast_image_resize = "3.0"
-rust-s3 = { git = "https://github.com/kozakura913/rust-s3" ,branch="with_metadata", default-features = false, features = ["tokio-rustls-tls", "fail-on-err"] }
 uuid = { version = "1.10", features = ["v4"] }
-redis = { version = "0.26", features = ["tokio-comp"] }
 sha2 = "0.10"
-base64 = "0.22.1"
-md5 = "0.7.0"
-nsfw = { version = "0.2.0", default-features = false }
-reqwest = { version = "0.12", default-features = false , features = ["rustls-tls-webpki-roots", "charset"] } 
-reqwest-websocket = "0.3.0"
-blurhash = "0.2.3"
+base64 = "0.22"
+md5 = "0.7"
 infer = { version = "0.16", default-features = false }
 percent-encoding = "2.3.1"
 ndarray = "0.16"
@@ -40,7 +28,23 @@ pad = "0.1.6"
 ulid = { version = "1.2", default-features = false }
 rand = { version = "0.9", features = ["std_rng"] }
 memory-cache-rs = "0.2.0"
-serde_yaml = "0.9.34"
+flate2 = "1.1.0"
+
+#http
+axum = { version = "0.7", features = ["ws","http2","multipart"] }
+rust-s3 = { git = "https://github.com/kozakura913/rust-s3" ,branch="with_metadata", default-features = false, features = ["tokio-rustls-tls", "fail-on-err"] }
+reqwest = { version = "0.12", default-features = false , features = ["rustls-tls-webpki-roots", "charset"] }
+reqwest-websocket = "0.3.0"
+
+#image
+image = {git="https://github.com/kozakura913/image.git",branch="main"}
+webp = { version = "0.3.0", default-features = false }
+resvg = {version="0.41",features = [ "text","memmap-fonts","raster-images" ] }
+rexif = "0.7"
+avif-decoder_dep = { path="./avif-decoder_dep" ,optional = true }
+fast_image_resize = "3.0"
+nsfw = { version = "0.2.0", default-features = false }
+blurhash = "0.2.3"
 
 # db
 diesel ={version="*", features = ["chrono","numeric","serde_json","64-column-tables"]}
@@ -49,6 +53,8 @@ diesel-derive-enum ={version="2.1.0", features = ["postgres"]}
 strum_macros = "0.26.4"
 strum = "0.26.3"
 bigdecimal = "*"
+
+redis = { version = "0.26", features = ["tokio-comp"] }
 
 [profile.dev]
 opt-level = 1
