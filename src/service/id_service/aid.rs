@@ -15,7 +15,7 @@ impl IdServiceImpl for AidService{
 	fn is_safe_t(&self,t:i64)->bool {
 		t > TIME2000
 	}
-	fn gen(&self,time: i64)->String {
+	fn gen_id(&self,time: i64)->String {
 		get_time(time) + &self.get_noise()
 	}
 	fn parse(&self,id: &str)->Option<i64>{
@@ -24,7 +24,7 @@ impl IdServiceImpl for AidService{
 }
 impl AidService{
 	pub fn new()->Self{
-		let counter = rand::rngs::StdRng::from_os_rng().gen::<i16>();
+		let counter = rand::rngs::StdRng::from_os_rng().random::<i16>();
 		Self{
 			counter:AtomicI16::new(counter),
 		}

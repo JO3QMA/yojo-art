@@ -114,7 +114,7 @@ pub async fn post(
 	let mut user=None;
 	let mut register_preflight_result=Err(crate::service::drive::RegisterPreflightError::InternalServerError);
 	if let Some(token)=req.i.as_ref(){
-		if let Some(mut con)=ctx.raw_db.get().await{
+		match ctx.raw_db.get().await{ Some(mut con) => {
 			let db_token=MiAccessToken::load_by_id(&mut con, &token).await;
 			user=match db_token{
 				Some(token)=>MiUser::load_by_id(&mut con,&token.user_id).await,
@@ -133,11 +133,11 @@ pub async fn post(
 			}else{
 				println!("not found MiUser");
 			}
-		}else{
+		} _ => {
 			let mut header=axum::http::header::HeaderMap::new();
 			header.insert("X-ErrorStatus","DB Pool".parse().unwrap());
 			return (axum::http::StatusCode::INTERNAL_SERVER_ERROR,header).into_response();
-		}
+		}}
 	}else{
 		println!("No Token")
 	}

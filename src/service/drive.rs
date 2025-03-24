@@ -220,7 +220,7 @@ impl DriveService{
 		}
 
 		let mut file = MiDriveFile{
-			id : self.id_service.gen(None),
+			id : self.id_service.gen_id(None),
 			user_id : user.as_ref().map(|user|user.id.to_owned()),
 			user_host : user.as_ref().map(|user|user.host.to_owned()).unwrap_or_default(),
 			folder_id : folder.as_ref().map(|folder|folder.id.to_owned()),
@@ -425,11 +425,11 @@ impl DriveService{
 				if let Some(folder_id)=parent_id{
 					let parent=fetch_folder(con, Some(&folder_id), folder.user_id.as_ref().map(|x| x.as_str())).await;
 					parent_id=parent.as_ref().map(|v|v.parent_id.clone()).unwrap_or_default();
-					if let Some(v)=self.pack_folder0(con,parent.as_ref(),true).await{
+					match self.pack_folder0(con,parent.as_ref(),true).await{ Some(v) => {
 						parent_stack.push(v);
-					}else{
+					} _ => {
 						break;
-					}
+					}}
 				}else{
 					break;
 				}

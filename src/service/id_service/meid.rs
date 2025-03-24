@@ -10,7 +10,7 @@ impl IdServiceImpl for MeidService{
 	fn is_safe_t(&self,t:i64)->bool {
 		t > 0
 	}
-	fn gen(&self,time: i64)->String {
+	fn gen_id(&self,time: i64)->String {
 		let random=nanoid::nanoid!(12,&CHARS.chars().collect::<Vec<char>>());
 		get_time(time) + &random
 	}

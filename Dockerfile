@@ -6,7 +6,6 @@ COPY avif-decoder_dep ./avif-decoder_dep
 COPY assets ./assets
 COPY src ./src
 COPY Cargo.toml ./Cargo.toml
-COPY Cargo.lock ./Cargo.lock
 RUN --mount=type=cache,target=/var/cache/cargo --mount=type=cache,target=/app/target cargo build --release
 RUN --mount=type=cache,target=/app/target mv /app/target/release/yojo-art-rs /app/yojo-art-rs
 

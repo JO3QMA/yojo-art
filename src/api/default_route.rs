@@ -110,12 +110,12 @@ async fn ws_read_side(
 					//println!("WS from client {:?}",message);
 					if let Ok(message)=message{
 						let res = backend_sender.send(reqwest_websocket::Message::Text(message)).await;
-						if let Err(e)=res{
+						match res{ Err(e) => {
 							eprintln!("WS send to backend error {:?}",e);
 							break;
-						}else{
+						} _ => {
 							ping_sync.store(chrono::Utc::now().timestamp_millis(), std::sync::atomic::Ordering::Relaxed);
-						}
+						}}
 					}
 				}
 			},
@@ -158,12 +158,12 @@ async fn ws_write_side(
 				reqwest_websocket::Message::Text(message) => {
 					//println!("WS from backend {:?}",message);
 					let res = sender.send(axum::extract::ws::Message::Text(message)).await;
-					if let Err(e)=res{
+					match res{ Err(e) => {
 						eprintln!("WS send to client error {:?}",e);
 						break;
-					}else{
+					} _ => {
 						ping_sync.store(chrono::Utc::now().timestamp_millis(), std::sync::atomic::Ordering::Relaxed);
-					}
+					}}
 				},
 				_=>{
 					//

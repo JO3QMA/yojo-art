@@ -16,7 +16,7 @@ impl IdServiceImpl for UlidService{
 	fn is_safe_t(&self,t:i64)->bool {
 		t > 0
 	}
-	fn gen(&self,time: i64)->String {
+	fn gen_id(&self,time: i64)->String {
 		let mut rng=self.rng.lock().unwrap();
 		let datetime=chrono::DateTime::from_timestamp_millis(time).unwrap();
 		let rng:&mut StdRng=&mut rng;

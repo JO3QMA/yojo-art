@@ -23,7 +23,7 @@ impl IdServiceImpl for AidxService{
 	fn is_safe_t(&self,t:i64)->bool {
 		t > TIME2000
 	}
-	fn gen(&self,time: i64)->String {
+	fn gen_id(&self,time: i64)->String {
 		get_time(time) + self.node_id.as_str() + &self.get_noise()
 	}
 	fn parse(&self,id: &str)->Option<i64>{

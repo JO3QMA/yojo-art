@@ -103,15 +103,15 @@ impl FileMetaService{
 		if let Ok(mut process)=tokio::process::Command::new(ffmpeg).stdout(std::process::Stdio::piped()).args(["-loglevel","quiet","-i",url.as_str(),"-frames:v","1","-f","image2pipe","-"]).spawn(){
 			if let Some(mut stdout)=process.stdout.take(){
 				let mut img=vec![];
-				if let Err(e)=stdout.read_to_end(&mut img).await{
+				match stdout.read_to_end(&mut img).await{ Err(e) => {
 					println!("{:?}",e);
-				}else{
+				} _ => {
 					if let Ok(img)=image::load_from_memory(&img){
 						let info=self.metadata(img,sensitive_threshold,skip_sensitive_detection, thumbnail_size,config.thumbnail_quality,config.thumbnail_filter.into()).await;
 						let _=process.start_kill();
 						return Some(info);
 					}
-				}
+				}}
 			}
 			let _=process.wait().await;
 		}

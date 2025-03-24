@@ -13,7 +13,7 @@ use crate::MisskeyConfig;
 pub struct IdService(Arc<(String,Box<dyn IdServiceImpl>)>);
 trait IdServiceImpl:Debug+Send+Sync{
 	fn is_safe_t(&self,t:i64)->bool;
-	fn gen(&self,time: i64)->String;
+	fn gen_id(&self,time: i64)->String;
 	fn parse(&self,id: &str)->Option<i64>;
 }
 impl IdService{
@@ -37,7 +37,7 @@ impl IdService{
 	 * 時間を元にIDを生成します(省略時は現在日時)
 	 * @param time 日時 1970-01-01T00:00:00Zからの経過ミリ秒
 	 */
-	pub fn gen(&self,time: Option<i64>)->String {
+	pub fn gen_id(&self,time: Option<i64>)->String {
 		let now=chrono::Utc::now().timestamp_millis();
 		let t=if let Some(time)=time{
 			if time>now{
@@ -48,7 +48,7 @@ impl IdService{
 		}else{
 			now
 		};
-		self.0.1.gen(t)
+		self.0.1.gen_id(t)
 	}
 	pub fn parse(&self,id: &str)->Option<chrono::DateTime<chrono::Utc>> {
 		let time=self.0.1.parse(id)?;

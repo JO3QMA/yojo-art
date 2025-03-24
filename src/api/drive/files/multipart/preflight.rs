@@ -50,7 +50,7 @@ pub async fn post(
 
 	let user;
 	let mut register_preflight_result=Err(crate::service::drive::RegisterPreflightError::InternalServerError);
-	if let Some(mut con)=ctx.raw_db.get().await{
+	match ctx.raw_db.get().await{ Some(mut con) => {
 		let db_token=MiAccessToken::load_by_id(&mut con, &q.i).await;
 		user=match db_token{
 			Some(token)=>MiUser::load_by_id(&mut con,&token.user_id).await,
@@ -69,11 +69,11 @@ pub async fn post(
 		}else{
 			println!("not found MiUser");
 		}
-	}else{
+	} _ => {
 		let mut header=axum::http::header::HeaderMap::new();
 		header.insert("X-ErrorStatus","DB Pool".parse().unwrap());
 		return (axum::http::StatusCode::INTERNAL_SERVER_ERROR,header).into_response();
-	}
+	}}
 	//println!("preflight{}ms",(chrono::Utc::now()-offset_time).num_milliseconds());
 	if let Err(e)=register_preflight_result{
 		let mut header=axum::http::header::HeaderMap::new();
@@ -123,11 +123,11 @@ pub async fn post(
 	let mut header=axum::http::header::HeaderMap::new();
 	header.insert(axum::http::header::CONTENT_TYPE,"application/json".parse().unwrap());
 	let mut ctx=ctx.as_ref().clone();
-	if let Err(e)=ctx.redis.set_ex::<&String,String,()>(&format!("multipartUpload:{}",sid),session,ctx.config.session_ttl).await{
+	match ctx.redis.set_ex::<&String,String,()>(&format!("multipartUpload:{}",sid),session,ctx.config.session_ttl).await{ Err(e) => {
 		eprintln!("{}:{} {:?}",file!(),line!(),e);
 		res.allow_upload=false;
 		(StatusCode::INTERNAL_SERVER_ERROR,header,serde_json::to_string(&res).unwrap()).into_response()
-	}else{
+	} _ => {
 		(StatusCode::OK,header,serde_json::to_string(&res).unwrap()).into_response()
-	}
+	}}
 }
