@@ -25,7 +25,9 @@ pub enum MainEventType{
 #[derive(Clone,Serialize,Deserialize,Debug)]
 pub enum DriveEventType{
 	#[serde(rename = "fileCreated")]
-	FileCreated
+	FileCreated,
+	#[serde(rename = "fileDeleted")]
+	FileDeleted,
 }
 #[derive(Clone,Debug)]
 pub struct EventService{

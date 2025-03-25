@@ -111,36 +111,33 @@ pub async fn post(
 		req.ext = None;
 	}
 	//let offset_time=chrono::Utc::now();
-	let mut user=None;
-	let mut register_preflight_result=Err(crate::service::drive::RegisterPreflightError::InternalServerError);
-	if let Some(token)=req.i.as_ref(){
-		match ctx.raw_db.get().await{ Some(mut con) => {
-			let db_token=MiAccessToken::load_by_id(&mut con, &token).await;
-			user=match db_token{
-				Some(token)=>MiUser::load_by_id(&mut con,&token.user_id).await,
-				None=>MiUser::load_by_token(&mut con,&token).await
-			};
-			if let Some(me)=user.as_ref(){
-				println!("call register_preflight");
-				register_preflight_result=ctx.drive_service.register_preflight(
-					Some(&me),
-					req.size as i64,
-					req.name.as_deref().unwrap_or_default(),
-					req.ext.as_deref(),
-					false,
-					folder_id.as_deref(),
-				).await;
-			}else{
-				println!("not found MiUser");
-			}
-		} _ => {
-			let mut header=axum::http::header::HeaderMap::new();
-			header.insert("X-ErrorStatus","DB Pool".parse().unwrap());
-			return (axum::http::StatusCode::INTERNAL_SERVER_ERROR,header).into_response();
-		}}
-	}else{
-		println!("No Token")
+	let permission=match req.i.take(){
+		Some(token)=>ctx.token_service.get_permission(&crate::service::token_service::Token(token)).await,
+		None=>crate::service::token_service::TokenPermission::None,
+	};
+	if !permission.is_allow(crate::service::token_service::PermissionKind::WriteDrive){
+		return StatusCode::FORBIDDEN.into_response();
 	}
+	let mut con=if let Some(con)=ctx.raw_db.get().await{
+		con
+	}else{
+		let mut header=axum::http::header::HeaderMap::new();
+		header.insert("X-ErrorStatus","DB Pool".parse().unwrap());
+		return (axum::http::StatusCode::INTERNAL_SERVER_ERROR,header).into_response();
+	};
+	let user=match permission.into_user(&mut con).await{
+		Some(user)=>user,
+		None=>return StatusCode::FORBIDDEN.into_response(),
+	};
+	println!("call register_preflight");
+	let register_preflight_result=ctx.drive_service.register_preflight(
+		Some(&user),
+		req.size as i64,
+		req.name.as_deref().unwrap_or_default(),
+		req.ext.as_deref(),
+		false,
+		folder_id.as_deref(),
+	).await;
 	//println!("preflight{}ms",(chrono::Utc::now()-offset_time).num_milliseconds());
 	if let Err(e)=register_preflight_result{
 		let mut header=axum::http::header::HeaderMap::new();
@@ -232,7 +229,7 @@ pub async fn post(
 		},
 	};
 	let res=ctx.drive_service.register_file(
-		user.as_ref(),
+		Some(&user),
 		s3_key.as_str(),
 		folder_id.as_deref(),
 		req.comment.as_deref(),

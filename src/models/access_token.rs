@@ -44,13 +44,14 @@ pub struct MiAccessToken{
 
 impl MiAccessToken{
 	pub async fn load_by_id(con:&mut DBConnection<'_>,token_id:&str)->Option<Self>{
-		let res:MiAccessToken={
+		let mut res:MiAccessToken={
 			use self::access_token::dsl::access_token;
 			use self::access_token::dsl::*;
 			access_token.filter(token.eq(token_id)).select(MiAccessToken::as_select()).first(con).await.map_err(|e|{
 				eprintln!("{:?}",e);
 			})
 		}.ok()?;
+		res.permission.sort();
 		Some(res)
 	}
 }

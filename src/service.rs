@@ -6,3 +6,4 @@ pub mod event;
 pub mod user;
 pub mod announcement;
 pub mod file_meta;
+pub mod token_service;

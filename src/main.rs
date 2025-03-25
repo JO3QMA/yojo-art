@@ -3,7 +3,7 @@ use std::{io::Write, net::SocketAddr, sync::Arc};
 use axum::{http::StatusCode, response::{IntoResponse, Response}, Router};
 use diesel_async::AsyncPgConnection;
 use redis::aio::MultiplexedConnection;
-use service::{announcement::AnnouncementService, drive::DriveService, event::EventService, file_meta::FileMetaService, id_service::IdService, meta::MetaService, role::RoleService, user::UserService};
+use service::{announcement::AnnouncementService, drive::DriveService, event::EventService, file_meta::FileMetaService, id_service::IdService, meta::MetaService, role::RoleService, token_service::TokenService, user::UserService};
 use s3::Bucket;
 use serde::{Deserialize, Serialize};
 mod browsersafe;
@@ -91,6 +91,7 @@ pub struct Context{
 	misskey_config:Arc<MisskeyConfig>,
 	redis:MultiplexedConnection,
 	client:reqwest::Client,
+	token_service:TokenService,
 	role_service:RoleService,
 	drive_service:DriveService,
 	event_service:EventService,
@@ -209,6 +210,7 @@ fn main() {
 		};
 		let db=DataBase::open(&misskey_config.db.to_url()).await.unwrap();
 		let id_service=IdService::new(&misskey_config);
+		let token_service=TokenService::new(db.clone(),id_service.clone());
 		let meta_service=MetaService::new(db.clone());
 		let role_service=RoleService::new(db.clone(),meta_service.clone());
 		let announcement_service=AnnouncementService::new(db.clone());
@@ -221,6 +223,7 @@ fn main() {
 			config,
 			redis,
 			client,
+			token_service,
 			role_service,
 			drive_service,
 			event_service,
