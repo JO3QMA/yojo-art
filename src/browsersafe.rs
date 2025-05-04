@@ -9,13 +9,11 @@ pub const FILE_TYPE_BROWSERSAFE: [&str; 29] = [
 	"image/bmp",
 	"image/tiff",
 	"image/x-icon",
-
 	// Ogg
 	"audio/opus",
 	"video/ogg",
 	"audio/ogg",
 	"application/ogg",
-
 	// ISO/IEC base media file format
 	"video/quicktime",
 	"video/mp4",
@@ -24,13 +22,10 @@ pub const FILE_TYPE_BROWSERSAFE: [&str; 29] = [
 	"audio/x-m4a",
 	"video/3gpp",
 	"video/3gpp2",
-
 	"video/mpeg",
 	"audio/mpeg",
-
 	"video/webm",
 	"audio/webm",
-
 	"audio/aac",
 	"audio/flac",
 	"audio/wav",

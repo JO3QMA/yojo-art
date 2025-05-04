@@ -1,7 +1,13 @@
-use diesel::{deserialize::{FromSql, FromSqlRow}, expression::AsExpression, serialize::ToSql, sql_types::VarChar, ExpressionMethods, QueryDsl, Selectable, SelectableHelper};
+use crate::DBConnection;
+use diesel::{
+	ExpressionMethods, QueryDsl, Selectable, SelectableHelper,
+	deserialize::{FromSql, FromSqlRow},
+	expression::AsExpression,
+	serialize::ToSql,
+	sql_types::VarChar,
+};
 use diesel_async::RunQueryDsl;
 use strum_macros::{Display, EnumString};
-use crate::DBConnection;
 
 diesel::table! {
 	#[sql_name = "user_profile"]
@@ -13,53 +19,79 @@ diesel::table! {
 		followersVisibility -> VarChar,
 	}
 }
-#[derive(PartialEq, Eq,Debug,Clone,diesel::Insertable,diesel::Queryable,Selectable,diesel::QueryableByName)]
+#[derive(
+	PartialEq,
+	Eq,
+	Debug,
+	Clone,
+	diesel::Insertable,
+	diesel::Queryable,
+	Selectable,
+	diesel::QueryableByName,
+)]
 #[diesel(table_name = user_profile)]
-pub struct MiUserProfile{
+pub struct MiUserProfile {
 	#[diesel(column_name = "userId")]
-	pub user_id:String,
+	pub user_id: String,
 	#[diesel(column_name = "alwaysMarkNsfw")]
 	pub always_mark_nsfw: bool,
 	#[diesel(column_name = "autoSensitive")]
 	pub auto_sensitive: bool,
 	#[diesel(column_name = "followingVisibility")]
-	pub following_visibility:Visibility,
+	pub following_visibility: Visibility,
 	#[diesel(column_name = "followersVisibility")]
-	pub followers_visibility:Visibility,
+	pub followers_visibility: Visibility,
 }
-#[derive(PartialEq,Eq,Copy,Clone,EnumString,Display,Default,Debug,FromSqlRow, AsExpression)]
+#[derive(
+	PartialEq, Eq, Copy, Clone, EnumString, Display, Default, Debug, FromSqlRow, AsExpression,
+)]
 #[diesel(sql_type = VarChar)]
-pub enum Visibility{
+pub enum Visibility {
 	#[default]
 	#[strum(serialize = "public")]
 	Public,
 	#[strum(serialize = "followers")]
 	Followers,
 	#[strum(serialize = "private")]
-	Private
+	Private,
 }
-impl ToSql<VarChar, diesel::pg::Pg> for Visibility where String: ToSql<VarChar, diesel::pg::Pg>{
-	fn to_sql<'b>(&'b self,out:&mut diesel::serialize::Output<'b, '_, diesel::pg::Pg>) -> diesel::serialize::Result{
+impl ToSql<VarChar, diesel::pg::Pg> for Visibility
+where
+	String: ToSql<VarChar, diesel::pg::Pg>,
+{
+	fn to_sql<'b>(
+		&'b self,
+		out: &mut diesel::serialize::Output<'b, '_, diesel::pg::Pg>,
+	) -> diesel::serialize::Result {
 		<String as ToSql<VarChar, diesel::pg::Pg>>::to_sql(&self.to_string(), &mut out.reborrow())
 	}
 }
-impl<DB: diesel::backend::Backend> FromSql<VarChar, DB> for Visibility where String: FromSql<VarChar, DB>{
+impl<DB: diesel::backend::Backend> FromSql<VarChar, DB> for Visibility
+where
+	String: FromSql<VarChar, DB>,
+{
 	fn from_sql(bytes: DB::RawValue<'_>) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
-		let v=<String as FromSql<VarChar, DB>>::from_sql(bytes)?;
+		let v = <String as FromSql<VarChar, DB>>::from_sql(bytes)?;
 		use std::str::FromStr;
-		Self::from_str(&v).or_else(|_|Ok(Self::Private))
+		Self::from_str(&v).or_else(|_| Ok(Self::Private))
 	}
 }
 
-impl MiUserProfile{
-	pub async fn load_by_user(con:&mut DBConnection<'_>,user_id:&str)->Option<Self>{
-		let res:MiUserProfile={
+impl MiUserProfile {
+	pub async fn load_by_user(con: &mut DBConnection<'_>, user_id: &str) -> Option<Self> {
+		let res: MiUserProfile = {
 			use self::user_profile::dsl::user_profile;
 			use self::user_profile::dsl::*;
-			user_profile.filter(userId.eq(user_id)).select(MiUserProfile::as_select()).first(con).await.map_err(|e|{
-				eprintln!("{:?}",e);
-			})
-		}.ok()?;
+			user_profile
+				.filter(userId.eq(user_id))
+				.select(MiUserProfile::as_select())
+				.first(con)
+				.await
+				.map_err(|e| {
+					eprintln!("{:?}", e);
+				})
+		}
+		.ok()?;
 		Some(res)
 	}
 }

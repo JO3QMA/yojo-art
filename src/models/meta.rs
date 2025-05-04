@@ -1,4 +1,10 @@
-use diesel::{deserialize::{FromSql, FromSqlRow}, expression::AsExpression, serialize::ToSql, sql_types::VarChar, Selectable};
+use diesel::{
+	Selectable,
+	deserialize::{FromSql, FromSqlRow},
+	expression::AsExpression,
+	serialize::ToSql,
+	sql_types::VarChar,
+};
 
 diesel::table! {
 	meta (id) {
@@ -42,90 +48,109 @@ diesel::table! {
 	}
 }
 
-#[derive(PartialEq, Eq,Debug,Clone,diesel::Insertable,diesel::Queryable,Selectable,diesel::QueryableByName)]
+#[derive(
+	PartialEq,
+	Eq,
+	Debug,
+	Clone,
+	diesel::Insertable,
+	diesel::Queryable,
+	Selectable,
+	diesel::QueryableByName,
+)]
 #[diesel(table_name = meta)]
-pub struct MiMeta{
-	pub id:String,
-	pub name:Option<String>,
+pub struct MiMeta {
+	pub id: String,
+	pub name: Option<String>,
 	#[diesel(column_name = "shortName")]
-	pub short_name:Option<String>,
-	pub description:Option<String>,
+	pub short_name: Option<String>,
+	pub description: Option<String>,
 	/**
 	 * メンテナの名前
 	 */
 	#[diesel(column_name = "maintainerName")]
-	pub maintainer_name:Option<String>,
+	pub maintainer_name: Option<String>,
 	/**
 	 * メンテナの連絡先
 	 */
 	#[diesel(column_name = "maintainerEmail")]
-	pub maintainer_email:Option<String>,
+	pub maintainer_email: Option<String>,
 	#[diesel(column_name = "disableRegistration")]
-	pub disable_registration:bool,
-	pub langs:Vec<String>,
+	pub disable_registration: bool,
+	pub langs: Vec<String>,
 	#[diesel(column_name = "pinnedUsers")]
-	pub pinned_users:Vec<String>,
+	pub pinned_users: Vec<String>,
 	#[diesel(column_name = "hiddenTags")]
-	pub hidden_tags:Vec<String>,
+	pub hidden_tags: Vec<String>,
 	#[diesel(column_name = "blockedHosts")]
-	pub blocked_hosts:Vec<String>,
+	pub blocked_hosts: Vec<String>,
 	#[diesel(column_name = "sensitiveWords")]
-	pub sensitive_words:Vec<String>,
+	pub sensitive_words: Vec<String>,
 	#[diesel(column_name = "prohibitedWords")]
-	pub prohibited_words:Vec<String>,
+	pub prohibited_words: Vec<String>,
 	#[diesel(column_name = "silencedHosts")]
-	pub silenced_wosts:Vec<String>,
+	pub silenced_wosts: Vec<String>,
 	#[diesel(column_name = "mediaSilencedHosts")]
-	pub media_silenced_hosts:Vec<String>,
+	pub media_silenced_hosts: Vec<String>,
 	#[diesel(column_name = "themeColor")]
-	pub theme_color:Option<String>,
+	pub theme_color: Option<String>,
 	#[diesel(column_name = "mascotImageUrl")]
-	pub mascot_image_url:Option<String>,
+	pub mascot_image_url: Option<String>,
 	#[diesel(column_name = "bannerUrl")]
-	pub banner_url:Option<String>,
+	pub banner_url: Option<String>,
 	#[diesel(column_name = "backgroundImageUrl")]
-	pub background_image_url:Option<String>,
+	pub background_image_url: Option<String>,
 	#[diesel(column_name = "logoImageUrl")]
-	pub logo_image_url:Option<String>,
+	pub logo_image_url: Option<String>,
 	#[diesel(column_name = "iconUrl")]
-	pub icon_url:Option<String>,
+	pub icon_url: Option<String>,
 	#[diesel(column_name = "app192IconUrl")]
-	pub app192_icon_url:Option<String>,
+	pub app192_icon_url: Option<String>,
 	#[diesel(column_name = "app512IconUrl")]
-	pub app512_icon_url:Option<String>,
+	pub app512_icon_url: Option<String>,
 	#[diesel(column_name = "serverErrorImageUrl")]
-	pub server_error_image_url:Option<String>,
+	pub server_error_image_url: Option<String>,
 	#[diesel(column_name = "notFoundImageUrl")]
-	pub not_found_image_url:Option<String>,
+	pub not_found_image_url: Option<String>,
 	#[diesel(column_name = "infoImageUrl")]
-	pub info_image_url:Option<String>,
+	pub info_image_url: Option<String>,
 	#[diesel(column_name = "cacheRemoteFiles")]
-	pub cache_remote_files:bool,
+	pub cache_remote_files: bool,
 	#[diesel(column_name = "cacheRemoteSensitiveFiles")]
-	pub cache_remote_sensitive_files:bool,
+	pub cache_remote_sensitive_files: bool,
 	#[diesel(column_name = "proxyAccountId")]
-	pub proxy_account_id:Option<String>,
+	pub proxy_account_id: Option<String>,
 	#[diesel(column_name = "emailRequiredForSignup")]
-	pub email_required_for_signup:bool,
+	pub email_required_for_signup: bool,
 	#[diesel(column_name = "sensitiveMediaDetection")]
-	pub sensitive_media_detection:SensitiveMediaDetection,
+	pub sensitive_media_detection: SensitiveMediaDetection,
 	#[diesel(column_name = "sensitiveMediaDetectionSensitivity")]
-	pub sensitive_media_detection_sensitivity:SensitiveMediaDetectionSensitivity,
+	pub sensitive_media_detection_sensitivity: SensitiveMediaDetectionSensitivity,
 	#[diesel(column_name = "enableSensitiveMediaDetectionForVideos")]
-	pub enable_sensitive_media_detection_for_videos:bool,
+	pub enable_sensitive_media_detection_for_videos: bool,
 	#[diesel(column_name = "enableIpLogging")]
-	pub enable_ip_logging:bool,
-	pub policies:serde_json::Value,
+	pub enable_ip_logging: bool,
+	pub policies: serde_json::Value,
 	#[diesel(column_name = "setSensitiveFlagAutomatically")]
-	pub set_sensitive_flag_automatically:bool,
+	pub set_sensitive_flag_automatically: bool,
 	#[diesel(column_name = "enableChartsForFederatedInstances")]
-	pub enable_charts_for_federated_instances:bool,
-	
+	pub enable_charts_for_federated_instances: bool,
 }
 
-#[derive(PartialEq, Eq,Copy,Clone,strum_macros::EnumString,strum_macros::Display,Default,Debug,FromSqlRow, AsExpression)]
+#[derive(
+	PartialEq,
+	Eq,
+	Copy,
+	Clone,
+	strum_macros::EnumString,
+	strum_macros::Display,
+	Default,
+	Debug,
+	FromSqlRow,
+	AsExpression,
+)]
 #[diesel(sql_type = VarChar)]
-pub enum SensitiveMediaDetection{
+pub enum SensitiveMediaDetection {
 	#[default]
 	#[strum(serialize = "none")]
 	None,
@@ -136,21 +161,41 @@ pub enum SensitiveMediaDetection{
 	#[strum(serialize = "remote")]
 	Remote,
 }
-impl ToSql<VarChar, diesel::pg::Pg> for SensitiveMediaDetection where String: ToSql<VarChar, diesel::pg::Pg>{
-	fn to_sql<'b>(&'b self,out:&mut diesel::serialize::Output<'b, '_, diesel::pg::Pg>) -> diesel::serialize::Result{
+impl ToSql<VarChar, diesel::pg::Pg> for SensitiveMediaDetection
+where
+	String: ToSql<VarChar, diesel::pg::Pg>,
+{
+	fn to_sql<'b>(
+		&'b self,
+		out: &mut diesel::serialize::Output<'b, '_, diesel::pg::Pg>,
+	) -> diesel::serialize::Result {
 		<String as ToSql<VarChar, diesel::pg::Pg>>::to_sql(&self.to_string(), &mut out.reborrow())
 	}
 }
-impl<DB: diesel::backend::Backend> FromSql<VarChar, DB> for SensitiveMediaDetection where String: FromSql<VarChar, DB>{
+impl<DB: diesel::backend::Backend> FromSql<VarChar, DB> for SensitiveMediaDetection
+where
+	String: FromSql<VarChar, DB>,
+{
 	fn from_sql(bytes: DB::RawValue<'_>) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
-		let v=<String as FromSql<VarChar, DB>>::from_sql(bytes)?;
+		let v = <String as FromSql<VarChar, DB>>::from_sql(bytes)?;
 		use std::str::FromStr;
-		Self::from_str(&v).or_else(|_|Ok(Self::default()))
+		Self::from_str(&v).or_else(|_| Ok(Self::default()))
 	}
 }
-#[derive(PartialEq, Eq,Copy,Clone,strum_macros::EnumString,strum_macros::Display,Default,Debug,FromSqlRow, AsExpression)]
+#[derive(
+	PartialEq,
+	Eq,
+	Copy,
+	Clone,
+	strum_macros::EnumString,
+	strum_macros::Display,
+	Default,
+	Debug,
+	FromSqlRow,
+	AsExpression,
+)]
 #[diesel(sql_type = VarChar)]
-pub enum SensitiveMediaDetectionSensitivity{
+pub enum SensitiveMediaDetectionSensitivity {
 	#[strum(serialize = "veryLow")]
 	VeryLow,
 	#[strum(serialize = "low")]
@@ -163,16 +208,25 @@ pub enum SensitiveMediaDetectionSensitivity{
 	#[strum(serialize = "veryHigh")]
 	VeryHigh,
 }
-impl ToSql<VarChar, diesel::pg::Pg> for SensitiveMediaDetectionSensitivity where String: ToSql<VarChar, diesel::pg::Pg>{
-	fn to_sql<'b>(&'b self,out:&mut diesel::serialize::Output<'b, '_, diesel::pg::Pg>) -> diesel::serialize::Result{
+impl ToSql<VarChar, diesel::pg::Pg> for SensitiveMediaDetectionSensitivity
+where
+	String: ToSql<VarChar, diesel::pg::Pg>,
+{
+	fn to_sql<'b>(
+		&'b self,
+		out: &mut diesel::serialize::Output<'b, '_, diesel::pg::Pg>,
+	) -> diesel::serialize::Result {
 		<String as ToSql<VarChar, diesel::pg::Pg>>::to_sql(&self.to_string(), &mut out.reborrow())
 	}
 }
-impl<DB: diesel::backend::Backend> FromSql<VarChar, DB> for SensitiveMediaDetectionSensitivity where String: FromSql<VarChar, DB>{
+impl<DB: diesel::backend::Backend> FromSql<VarChar, DB> for SensitiveMediaDetectionSensitivity
+where
+	String: FromSql<VarChar, DB>,
+{
 	fn from_sql(bytes: DB::RawValue<'_>) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
-		let v=<String as FromSql<VarChar, DB>>::from_sql(bytes)?;
+		let v = <String as FromSql<VarChar, DB>>::from_sql(bytes)?;
 		use std::str::FromStr;
-		Self::from_str(&v).or_else(|_|Ok(Self::default()))
+		Self::from_str(&v).or_else(|_| Ok(Self::default()))
 	}
 }
 
