@@ -190,7 +190,8 @@ impl DriveService {
 		Ok(RegisterPreflightResult {
 			skip_sensitive_detection: skip_nsfw_check,
 			sensitive_threshold,
-			enable_sensitive_media_detection_for_videos: instance.other
+			enable_sensitive_media_detection_for_videos: instance
+				.other
 				.enable_sensitive_media_detection_for_videos,
 			detected_name,
 		})
@@ -341,7 +342,10 @@ impl DriveService {
 			}
 		}
 		if let Some(user) = user.as_ref() {
-			if is_media_silenced_host(&instance.moderation.media_silenced_hosts, user.host.as_deref()) {
+			if is_media_silenced_host(
+				&instance.moderation.media_silenced_hosts,
+				user.host.as_deref(),
+			) {
 				file.is_sensitive = true;
 			}
 		}
@@ -458,7 +462,8 @@ impl DriveService {
 				.load(true)
 				.await
 				.unwrap()
-				.other.enable_charts_for_federated_instances
+				.other
+				.enable_charts_for_federated_instances
 			{
 				//this.instanceChart.updateDrive(file, true);
 			}

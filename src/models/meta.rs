@@ -1,18 +1,12 @@
-
 pub mod branding;
 pub mod moderation;
 pub mod other;
 
-#[derive(
-	PartialEq,
-	Eq,
-	Debug,
-	Clone,
-)]
-pub struct MiMeta{
-	pub other:other::MiMetaOther,
-	pub branding:branding::MiMetaBranding,
-	pub moderation:moderation::MiMetaModeration,
+#[derive(PartialEq, Eq, Debug, Clone)]
+pub struct MiMeta {
+	pub other: other::MiMetaOther,
+	pub branding: branding::MiMetaBranding,
+	pub moderation: moderation::MiMetaModeration,
 }
 
 /*
