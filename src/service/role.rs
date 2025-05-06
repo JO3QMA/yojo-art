@@ -133,7 +133,7 @@ impl RoleService {
 	pub async fn get_user_policies(&self, user_id: Option<&str>) -> RolePolicies {
 		let mut base_policies: HashMap<String, Policy> = DEFAULT_POLICIES.into();
 		let meta = self.meta_service.load(true).await;
-		if let Some(Some(map)) = meta.as_ref().map(|v| v.policies.as_object()) {
+		if let Some(Some(map)) = meta.as_ref().map(|v| v.other.policies.as_object()) {
 			for (k, v) in map {
 				if let Some(default_value) = base_policies.get_mut(k) {
 					*default_value = Policy {

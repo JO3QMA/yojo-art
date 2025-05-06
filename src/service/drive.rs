@@ -6,7 +6,6 @@ use crate::{
 		self,
 		drive_file::{FileProperties, MiDriveFile},
 		drive_folder::MiDriveFolder,
-		meta::SensitiveMediaDetection,
 		user::MiUser,
 		user_profile::MiUserProfile,
 	},
@@ -96,16 +95,17 @@ impl DriveService {
 		} else {
 			skip_nsfw_check = false;
 		}
-		if instance.sensitive_media_detection == SensitiveMediaDetection::None {
+		use crate::models::meta::other::SensitiveMediaDetection;
+		if instance.other.sensitive_media_detection == SensitiveMediaDetection::None {
 			skip_nsfw_check = true;
 		}
 		if let Some(user) = user.as_ref() {
-			if instance.sensitive_media_detection == SensitiveMediaDetection::Local
+			if instance.other.sensitive_media_detection == SensitiveMediaDetection::Local
 				&& user.host.is_some()
 			{
 				skip_nsfw_check = true;
 			}
-			if instance.sensitive_media_detection == SensitiveMediaDetection::Remote
+			if instance.other.sensitive_media_detection == SensitiveMediaDetection::Remote
 				&& user.host.is_none()
 			{
 				skip_nsfw_check = true;
@@ -179,17 +179,18 @@ impl DriveService {
 		if folder_id.is_some() && drive_folder.is_none() {
 			return Err(RegisterPreflightError::FolderNotFound);
 		}
-		let sensitive_threshold = match instance.sensitive_media_detection_sensitivity {
-			models::meta::SensitiveMediaDetectionSensitivity::VeryHigh => 0.1,
-			models::meta::SensitiveMediaDetectionSensitivity::High => 0.3,
-			models::meta::SensitiveMediaDetectionSensitivity::Medium => 0.5,
-			models::meta::SensitiveMediaDetectionSensitivity::Low => 0.7,
-			models::meta::SensitiveMediaDetectionSensitivity::VeryLow => 0.9,
+		use models::meta::other::SensitiveMediaDetectionSensitivity::*;
+		let sensitive_threshold = match instance.other.sensitive_media_detection_sensitivity {
+			VeryHigh => 0.1,
+			High => 0.3,
+			Medium => 0.5,
+			Low => 0.7,
+			VeryLow => 0.9,
 		};
 		Ok(RegisterPreflightResult {
 			skip_sensitive_detection: skip_nsfw_check,
 			sensitive_threshold,
-			enable_sensitive_media_detection_for_videos: instance
+			enable_sensitive_media_detection_for_videos: instance.other
 				.enable_sensitive_media_detection_for_videos,
 			detected_name,
 		})
@@ -340,7 +341,7 @@ impl DriveService {
 			}
 		}
 		if let Some(user) = user.as_ref() {
-			if is_media_silenced_host(&instance.media_silenced_hosts, user.host.as_deref()) {
+			if is_media_silenced_host(&instance.moderation.media_silenced_hosts, user.host.as_deref()) {
 				file.is_sensitive = true;
 			}
 		}
@@ -352,7 +353,7 @@ impl DriveService {
 		{
 			file.is_sensitive = true;
 		}
-		if maybe_sensitive && instance.set_sensitive_flag_automatically {
+		if maybe_sensitive && instance.other.set_sensitive_flag_automatically {
 			file.is_sensitive = true;
 		}
 		if user_role_nsfw {
@@ -457,7 +458,7 @@ impl DriveService {
 				.load(true)
 				.await
 				.unwrap()
-				.enable_charts_for_federated_instances
+				.other.enable_charts_for_federated_instances
 			{
 				//this.instanceChart.updateDrive(file, true);
 			}
