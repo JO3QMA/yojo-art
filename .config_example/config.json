@@ -1,0 +1,22 @@
+{
+  "bind_addr": "0.0.0.0:3001",
+  "public_base_url": "https://tunnel-minio.example.com/files/",
+  "prefix": "files",
+  "thumbnail_filter": "Lanczos3",
+  "thumbnail_quality": 50.0,
+  "ffmpeg": "ffmpeg",
+  "ffmpeg_base_url": "https://tunnel-minio.example.com/files/",
+  "s3": {
+    "endpoint": "http://minio-server:9000",
+    "bucket": "files",
+    "region": "us-east-1",
+    "access_key": "example-minio-user-name",
+    "secret_key": "example-minio-password",
+    "timeout": 5000,
+    "path_style": true
+  },
+  "session_ttl": 300,
+  "part_max_size": 20971520,
+  "backend": "http://web:3000",
+  "full_upload_limit": 10485760
+}

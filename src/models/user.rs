@@ -21,49 +21,68 @@ diesel::table! {
 		host -> Nullable<VarChar>,
 	}
 }
-#[derive(PartialEq,Eq,Debug,Clone,diesel::Insertable,diesel::Queryable,Selectable,diesel::QueryableByName)]
+#[derive(
+	PartialEq,
+	Eq,
+	Debug,
+	Clone,
+	diesel::Insertable,
+	diesel::Queryable,
+	Selectable,
+	diesel::QueryableByName,
+)]
 #[diesel(table_name = user)]
-pub struct MiUser{
-	pub id:String,
+pub struct MiUser {
+	pub id: String,
 	#[diesel(column_name = "updatedAt")]
-	pub updated_at:Option<NaiveDateTime>,
+	pub updated_at: Option<NaiveDateTime>,
 	#[diesel(column_name = "lastFetchedAt")]
-	pub last_fetched_at:Option<NaiveDateTime>,
+	pub last_fetched_at: Option<NaiveDateTime>,
 	#[diesel(column_name = "lastActiveDate")]
-	pub last_active_date:Option<NaiveDateTime>,
+	pub last_active_date: Option<NaiveDateTime>,
 	#[diesel(column_name = "hideOnlineStatus")]
-	pub hide_online_status:bool,
-	pub username:String,
+	pub hide_online_status: bool,
+	pub username: String,
 	#[diesel(column_name = "usernameLower")]
-	pub username_lower:String,
+	pub username_lower: String,
 	#[diesel(column_name = "name")]
-	pub display_name:Option<String>,
+	pub display_name: Option<String>,
 	#[diesel(column_name = "followersCount")]
-	pub followers_count:i32,
+	pub followers_count: i32,
 	#[diesel(column_name = "followingCount")]
-	pub following_count:i32,
-	pub token:Option<String>,//リモートユーザーは持たない
-	pub host:Option<String>,//ローカルユーザーは持たない
+	pub following_count: i32,
+	pub token: Option<String>, //リモートユーザーは持たない
+	pub host: Option<String>,  //ローカルユーザーは持たない
 }
-impl MiUser{
-	pub async fn load_by_id(con:&mut DBConnection<'_>,user_id:&str)->Option<Self>{
-		let res:MiUser={
+impl MiUser {
+	pub async fn load_by_id(con: &mut DBConnection<'_>, user_id: &str) -> Option<Self> {
+		let res: MiUser = {
 			use self::user::dsl::user;
 			use self::user::dsl::*;
-			user.filter(id.eq(user_id)).select(MiUser::as_select()).first(con).await.map_err(|e|{
-				eprintln!("{:?}",e);
-			})
-		}.ok()?;
+			user.filter(id.eq(user_id))
+				.select(MiUser::as_select())
+				.first(con)
+				.await
+				.map_err(|e| {
+					eprintln!("{:?}", e);
+				})
+		}
+		.ok()?;
 		Some(res)
 	}
-	pub async fn load_by_token(con:&mut DBConnection<'_>,user_token:&str)->Option<Self>{
-		let res:MiUser={
+	pub async fn load_by_token(con: &mut DBConnection<'_>, user_token: &str) -> Option<Self> {
+		let res: MiUser = {
 			use self::user::dsl::user;
 			use self::user::dsl::*;
-			user.filter(token.eq(user_token)).select(MiUser::as_select()).first(con).await.map_err(|e|{
-				eprintln!("{:?}",e);
-			})
-		}.ok()?;
+			user.filter(token.eq(user_token))
+				.select(MiUser::as_select())
+				.first(con)
+				.await
+				.map_err(|e| {
+					eprintln!("{:?}", e);
+				})
+		}
+		.ok()?;
 		Some(res)
 	}
 }
