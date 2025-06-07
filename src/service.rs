@@ -1,9 +1,13 @@
 pub mod announcement;
 pub mod drive;
+pub mod emoji;
 pub mod event;
+pub mod fanout_timeline;
 pub mod file_meta;
 pub mod id_service;
+pub mod instance;
 pub mod meta;
+pub mod note;
 pub mod role;
 pub mod token_service;
 pub mod user;

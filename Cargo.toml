@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+yojo-art-utils = { path="./utils" }
 tokio-stream = "*"
 tokio = { version = "1.0", features = ["rt-multi-thread","signal","process"] }
 tokio-util = { version = "0.7.8", features = ["io"] }
@@ -13,7 +14,7 @@ headers = "^0.3.8"
 serde = {version="^1.0",features=["derive"]}
 serde_json ="1"
 serde_yaml = "0.9"
-chrono = "0.4"
+chrono = {version="0.4",features=["serde"]}
 uuid = { version = "1.10", features = ["v4"] }
 sha2 = "0.10"
 base64 = "0.22"
@@ -29,12 +30,14 @@ ulid = { version = "1.2", default-features = false }
 rand = { version = "0.9", features = ["std_rng"] }
 memory-cache-rs = "0.2.0"
 flate2 = "1.1.0"
+regex = "1.11.1"
 
 #http
 axum = { version = "0.7", features = ["ws","http2","multipart"] }
 rust-s3 = { git = "https://github.com/kozakura913/rust-s3" ,branch="with_metadata", default-features = false, features = ["tokio-rustls-tls", "fail-on-err"] }
-reqwest = { version = "0.12", default-features = false , features = ["rustls-tls-webpki-roots", "charset"] }
+reqwest = { version = "0.12", default-features = false , features = ["rustls-tls-native-roots", "charset"] }
 reqwest-websocket = "0.3.0"
+punycode = "0.4.1"
 
 #image
 image = {git="https://github.com/kozakura913/image.git",branch="main"}
@@ -47,8 +50,8 @@ nsfw = { version = "0.2.0", default-features = false }
 blurhash = "0.2.3"
 
 # db
-diesel ={version="*", features = ["chrono","numeric","serde_json"]}
-diesel-async={version="0.5.0", features = ["postgres","bb8"]}
+diesel ={version="*", features = ["chrono","numeric","serde_json","64-column-tables"]}
+diesel-async={version="0.5.2", features = ["postgres","bb8"]}
 diesel-derive-enum ={version="2.1.0", features = ["postgres"]}
 strum_macros = "0.26.4"
 strum = "0.26.3"
@@ -56,8 +59,8 @@ bigdecimal = "*"
 
 redis = { version = "0.26", features = ["tokio-comp"] }
 
-[profile.dev]
-opt-level = 1
+#[profile.dev]
+#opt-level = 1
 
-[profile.dev.package."*"]
-opt-level = 3
+#[profile.dev.package."*"]
+#opt-level = 3

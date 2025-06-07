@@ -1,24 +1,41 @@
-use std::collections::HashMap;
+use std::{
+	collections::{HashMap, HashSet},
+	sync::Arc,
+};
 
+use chrono::Utc;
 use redis::{AsyncCommands, aio::MultiplexedConnection};
+use serde::{Deserialize, Serialize};
 
 use crate::{
-	DBConnection, DataBase,
+	DataBase, MisskeyConfig, ParsedMisskeyConfig, ServerError,
 	models::{
-		following::MiFollowing, user::MiUser, user_memo::MiUserMemo,
-		user_note_pining::MiUserNotePining, user_profile::MiUserProfile,
+		following::MiFollowing,
+		user::{MiAvatarDecoration, MiUser},
+		user_memo::MiUserMemo,
+		user_note_pining::MiUserNotePining,
+		user_profile::MiUserProfile,
 	},
 };
 
-use super::{announcement::AnnouncementService, id_service::IdService, role::RoleService};
+use super::{
+	announcement::AnnouncementService, emoji::EmojiService, id_service::IdService,
+	instance::InstanceService, meta::MetaService, role::RoleService,
+};
 
+pub const USER_ONLINE_THRESHOLD: i64 = 1000 * 60 * 10; // 10min
+pub const USER_ACTIVE_THRESHOLD: i64 = 1000 * 60 * 60 * 24 * 3; // 3days
 #[derive(Clone, Debug)]
 pub struct UserService {
+	config: Arc<ParsedMisskeyConfig>,
 	redis: MultiplexedConnection,
 	db: DataBase,
 	id_service: IdService,
 	role_service: RoleService,
 	announcement_service: AnnouncementService,
+	emoji_service: EmojiService,
+	instance_service: InstanceService,
+	meta_service: MetaService,
 }
 #[derive(Default, PartialEq, Eq, Debug)]
 pub enum UserPackSchema {
@@ -57,18 +74,26 @@ pub struct UserPackOptions {
 }
 impl UserService {
 	pub fn new(
+		config: Arc<ParsedMisskeyConfig>,
 		redis: MultiplexedConnection,
 		db: DataBase,
 		id_service: IdService,
 		role_service: RoleService,
 		announcement_service: AnnouncementService,
+		emoji_service: EmojiService,
+		instance_service: InstanceService,
+		meta_service: MetaService,
 	) -> Self {
 		Self {
+			config,
 			redis,
 			db,
 			id_service,
 			role_service,
 			announcement_service,
+			emoji_service,
+			instance_service,
+			meta_service,
 		}
 	}
 	pub async fn pack(
@@ -189,6 +214,8 @@ impl UserService {
 		todo!("ユーザーのpackは未実装");
 	}
 	pub async fn get_relation(&self, me_id: &str, target: &str) -> Option<UserRelation> {
+		use diesel::{ExpressionMethods, QueryDsl, SelectableHelper};
+		use diesel_async::RunQueryDsl;
 		let mut con = self.db.get().await?;
 		let f_following = async move {
 			let res: Option<MiFollowing> = {
@@ -201,7 +228,7 @@ impl UserService {
 					.first(&mut con)
 					.await
 					.map_err(|e| {
-						eprintln!("{:?}", e);
+						eprintln!("{}:{} {:?}", file!(), line!(), e);
 					})
 			}
 			.ok();
@@ -217,7 +244,7 @@ impl UserService {
 				.first(&mut con)
 				.await
 				.map_err(|e| {
-					eprintln!("{:?}", e);
+					eprintln!("{}:{} {:?}", file!(), line!(), e);
 				})
 				.ok();
 			res.is_some()
@@ -232,7 +259,7 @@ impl UserService {
 				.first(&mut con)
 				.await
 				.map_err(|e| {
-					eprintln!("{:?}", e);
+					eprintln!("{}:{} {:?}", file!(), line!(), e);
 				})
 				.ok();
 			res.is_some()
@@ -247,7 +274,7 @@ impl UserService {
 				.first(&mut con)
 				.await
 				.map_err(|e| {
-					eprintln!("{:?}", e);
+					eprintln!("{}:{} {:?}", file!(), line!(), e);
 				})
 				.ok();
 			res.is_some()
@@ -262,7 +289,7 @@ impl UserService {
 				.first(&mut con)
 				.await
 				.map_err(|e| {
-					eprintln!("{:?}", e);
+					eprintln!("{}:{} {:?}", file!(), line!(), e);
 				})
 				.ok();
 			res.is_some()
@@ -277,7 +304,7 @@ impl UserService {
 				.first(&mut con)
 				.await
 				.map_err(|e| {
-					eprintln!("{:?}", e);
+					eprintln!("{}:{} {:?}", file!(), line!(), e);
 				})
 				.ok();
 			res.is_some()
@@ -292,7 +319,7 @@ impl UserService {
 				.first(&mut con)
 				.await
 				.map_err(|e| {
-					eprintln!("{:?}", e);
+					eprintln!("{}:{} {:?}", file!(), line!(), e);
 				})
 				.ok();
 			res.is_some()
@@ -307,13 +334,11 @@ impl UserService {
 				.first(&mut con)
 				.await
 				.map_err(|e| {
-					eprintln!("{:?}", e);
+					eprintln!("{}:{} {:?}", file!(), line!(), e);
 				})
 				.ok();
 			res.is_some()
 		};
-		use diesel::{ExpressionMethods, QueryDsl, SelectableHelper};
-		use diesel_async::RunQueryDsl;
 		let (
 			following,
 			is_followed,
@@ -379,260 +404,222 @@ impl UserService {
 			hasUnread: unreadCount > 0,
 		})
 	}
-}
-/*
-
-	public async pack<S extends 'MeDetailed' | 'UserDetailedNotMe' | 'UserDetailed' | 'UserLite' = 'UserLite'>(
-		src: MiUser['id'] | MiUser,
-		me?: { id: MiUser['id']; } | null | undefined,
-		options?: {
-			schema?: S,
-			includeSecrets?: boolean,
-			userProfile?: MiUserProfile,
-			userRelations?: Map<MiUser['id'], UserRelation>,
-			userMemos?: Map<MiUser['id'], string | null>,
-			pinNotes?: Map<MiUser['id'], MiUserNotePining[]>,
-		},
-	): Promise<Packed<S>> {
-		const opts = Object.assign({
-			schema: 'UserLite',
-			includeSecrets: false,
-		}, options);
-
-		const user = typeof src === 'object' ? src : await this.usersRepository.findOneByOrFail({ id: src });
-
-		const isDetailed = opts.schema !== 'UserLite';
-		const meId = me ? me.id : null;
-		const isMe = meId === user.id;
-		const iAmModerator = me ? await this.roleService.isModerator(me as MiUser) : false;
-
-		const profile = isDetailed
-			? (opts.userProfile ?? await this.userProfilesRepository.findOneByOrFail({ userId: user.id }))
-			: null;
-
-		let relation: UserRelation | null = null;
-		if (meId && !isMe && isDetailed) {
-			if (opts.userRelations) {
-				relation = opts.userRelations.get(user.id) ?? null;
-			} else {
-				relation = await this.getRelation(meId, user.id);
-			}
+	pub fn is_remote_user(&self, user: &MiUser) -> bool {
+		user.host.is_some()
+	}
+	pub fn identicon_url(&self, user: &MiUser) -> String {
+		format!(
+			"{}identicon/{}@{}",
+			self.config.url,
+			user.username.to_lowercase(),
+			user.host
+				.as_ref()
+				.map(|s| s.as_str())
+				.unwrap_or(self.config.host.as_str())
+		)
+	}
+	pub async fn pack_lite(&self, user: MiUser) -> Result<PackedUserLite, ServerError> {
+		let online_status = self.online_status(&user);
+		let avatar_url = if user.avatar_url.is_none() {
+			self.identicon_url(&user)
+		} else {
+			user.avatar_url.unwrap()
+		};
+		//println!("avatar_decorations={:?}", user.avatar_decorations);
+		let mut con = self.db.get().await.ok_or("db")?;
+		let instance = match user.host.as_ref() {
+			Some(host) => Some(
+				self.instance_service
+					.fetch_connection((&mut con).into(), host)
+					.await?,
+			),
+			None => None,
+		};
+		let meta = self.meta_service.load(false).await.ok_or("meta")?;
+		let avatar_decorations = user.avatar_decorations.into_inner();
+		let mut avatar_decoration_ids = HashSet::new();
+		for ad in avatar_decorations.iter() {
+			avatar_decoration_ids.insert(ad.id.clone());
 		}
-
-		let memo: string | null = null;
-		if (isDetailed && meId) {
-			if (opts.userMemos) {
-				memo = opts.userMemos.get(user.id) ?? null;
-			} else {
-				memo = await this.userMemosRepository.findOneBy({ userId: meId, targetUserId: user.id })
-					.then(row => row?.memo ?? null);
-			}
-		}
-
-		let pins: MiUserNotePining[] = [];
-		if (isDetailed) {
-			if (opts.pinNotes) {
-				pins = opts.pinNotes.get(user.id) ?? [];
-			} else {
-				pins = await this.userNotePiningsRepository.createQueryBuilder('pin')
-					.where('pin.userId = :userId', { userId: user.id })
-					.innerJoinAndSelect('pin.note', 'note')
-					.orderBy('pin.id', 'DESC')
-					.getMany();
-			}
-		}
-
-		const followingCount = profile == null ? null :
-			(profile.followingVisibility === 'public') || isMe || iAmModerator ? user.followingCount :
-			(profile.followingVisibility === 'followers') && (relation && relation.isFollowing) ? user.followingCount :
-			null;
-
-		const followersCount = profile == null ? null :
-			(profile.followersVisibility === 'public') || isMe || iAmModerator ? user.followersCount :
-			(profile.followersVisibility === 'followers') && (relation && relation.isFollowing) ? user.followersCount :
-			null;
-
-		const isModerator = isMe && isDetailed ? this.roleService.isModerator(user) : null;
-		const isAdmin = isMe && isDetailed ? this.roleService.isAdministrator(user) : null;
-		const unreadAnnouncements = isMe && isDetailed ?
-			(await this.announcementService.getUnreadAnnouncements(user)).map((announcement) => ({
-				createdAt: this.idService.parse(announcement.id).date.toISOString(),
-				...announcement,
-			})) : null;
-
-		const notificationsInfo = isMe && isDetailed ? await this.getNotificationsInfo(user.id) : null;
-		//========WIP======
-
-		const packed = {
-			id: user.id,
+		let avatar_decoration_ids: Vec<String> = avatar_decoration_ids.into_iter().collect();
+		let avatar_decoration_urls = async {
+			use crate::models::avatar_decoration::avatar_decoration::dsl::avatar_decoration;
+			use crate::models::avatar_decoration::avatar_decoration::dsl::*;
+			use diesel::{ExpressionMethods, QueryDsl, SelectableHelper};
+			use diesel_async::RunQueryDsl;
+			let res: Option<Vec<crate::models::avatar_decoration::MiAvatarDecoration>> =
+				avatar_decoration
+					.filter(id.eq_any(&avatar_decoration_ids))
+					.select(crate::models::avatar_decoration::MiAvatarDecoration::as_select())
+					.load(&mut con)
+					.await
+					.map_err(|e| {
+						eprintln!("{}:{} {:?}", file!(), line!(), e);
+					})
+					.ok();
+			res.map(|ad| {
+				let mut map = HashMap::new();
+				for ad in ad.into_iter() {
+					map.insert(ad.id, ad.url);
+				}
+				map
+			})
+		};
+		//DBクエリ
+		let avatar_decoration_urls = avatar_decoration_urls.await;
+		let avatar_decorations = avatar_decorations
+			.into_iter()
+			.map(|raw_avatar_decoration: MiAvatarDecoration| {
+				let mut packed_avatar_decoration: PackedAvatarDecoration =
+					raw_avatar_decoration.into();
+				if let Some(Some(s)) = avatar_decoration_urls
+					.as_ref()
+					.map(|map| map.get(&packed_avatar_decoration.id))
+				{
+					packed_avatar_decoration.url.push_str(s.as_str());
+				}
+				packed_avatar_decoration
+			})
+			.collect();
+		Ok(PackedUserLite {
 			name: user.name,
 			username: user.username,
-			host: user.host,
-			avatarUrl: user.avatarUrl ?? this.getIdenticonUrl(user),
-			avatarBlurhash: user.avatarBlurhash,
-			avatarDecorations: user.avatarDecorations.length > 0 ? this.avatarDecorationService.getAll(false, true).then(decorations => user.avatarDecorations.filter(ud => decorations.some(d => d.id === ud.id)).map(ud => ({
-				id: ud.id,
-				angle: ud.angle || undefined,
-				flipH: ud.flipH || undefined,
-				offsetX: ud.offsetX || undefined,
-				offsetY: ud.offsetY || undefined,
-				scale: ud.scale || undefined,
-				opacity: ud.opacity || undefined,
-				url: decorations.find(d => d.id === ud.id)!.url,
-			}))) : [],
-			isBot: user.isBot,
-			isCat: user.isCat,
-			instance: user.host ? this.federatedInstanceService.federatedInstanceCache.fetch(user.host).then(instance => instance ? {
+			host: user.host.clone(),
+			avatar_url,
+			avatar_blurhash: user.avatar_blurhash,
+			avatar_decorations,
+			is_locked: user.is_locked,
+			is_bot: user.is_bot,
+			is_cat: user.is_cat,
+			is_proxy: meta.other.proxy_account_id.as_ref() == Some(&user.id),
+			require_signin_to_view_contents: user.require_signin_to_view_contents,
+			make_notes_followers_only_before: user.make_notes_followers_only_before,
+			make_notes_hidden_before: user.make_notes_hidden_before,
+			instance: instance.map(|instance| PackedInstance {
 				name: instance.name,
 				softwareName: instance.softwareName,
 				softwareVersion: instance.softwareVersion,
 				iconUrl: instance.iconUrl,
 				faviconUrl: instance.faviconUrl,
 				themeColor: instance.themeColor,
-			} : undefined) : undefined,
-			emojis: this.customEmojiService.populateEmojis(user.emojis, user.host),
-			onlineStatus: this.getOnlineStatus(user),
-			// パフォーマンス上の理由でローカルユーザーのみ
-			badgeRoles: user.host == null ? this.roleService.getUserBadgeRoles(user.id).then((rs) => rs
-				.filter((r) => r.isPublic || iAmModerator)
-				.sort((a, b) => b.displayOrder - a.displayOrder)
-				.map((r) => ({
-					name: r.name,
-					iconUrl: r.iconUrl,
-					displayOrder: r.displayOrder,
-				}))
-			) : undefined,
-
-			...(isDetailed ? {
-				url: profile!.url,
-				uri: user.uri,
-				movedTo: user.movedToUri ? this.apPersonService.resolvePerson(user.movedToUri).then(user => user.id).catch(() => null) : null,
-				alsoKnownAs: user.alsoKnownAs
-					? Promise.all(user.alsoKnownAs.map(uri => this.apPersonService.fetchPerson(uri).then(user => user?.id).catch(() => null)))
-						.then(xs => xs.length === 0 ? null : xs.filter(x => x != null))
-					: null,
-				createdAt: this.idService.parse(user.id).date.toISOString(),
-				updatedAt: user.updatedAt ? user.updatedAt.toISOString() : null,
-				lastFetchedAt: user.lastFetchedAt ? user.lastFetchedAt.toISOString() : null,
-				bannerUrl: user.bannerUrl,
-				bannerBlurhash: user.bannerBlurhash,
-				isLocked: user.isLocked,
-				isSilenced: this.roleService.getUserPolicies(user.id).then(r => !r.canPublicNote),
-				isSuspended: user.isSuspended,
-				description: profile!.description,
-				location: profile!.location,
-				birthday: profile!.birthday,
-				lang: profile!.lang,
-				fields: profile!.fields,
-				verifiedLinks: profile!.verifiedLinks,
-				mutualLinkSections: profile!.mutualLinkSections,
-				followersCount: followersCount ?? '?',
-				followingCount: followingCount ?? '?',
-				notesCount: user.notesCount,
-				pinnedNoteIds: pins.map(pin => pin.noteId),
-				pinnedNotes: this.noteEntityService.packMany(pins.map(pin => pin.note!), me, {
-					detail: true,
-				}),
-				pinnedPageId: profile!.pinnedPageId,
-				pinnedPage: profile!.pinnedPageId ? this.pageEntityService.pack(profile!.pinnedPageId, me) : null,
-				publicReactions: this.isLocalUser(user) ? profile!.publicReactions : false, // https://github.com/misskey-dev/misskey/issues/12964
-				followersVisibility: profile!.followersVisibility,
-				followingVisibility: profile!.followingVisibility,
-				twoFactorEnabled: profile!.twoFactorEnabled,
-				usePasswordLessLogin: profile!.usePasswordLessLogin,
-				securityKeys: profile!.twoFactorEnabled
-					? this.userSecurityKeysRepository.countBy({ userId: user.id }).then(result => result >= 1)
-					: false,
-				roles: this.roleService.getUserRoles(user.id).then(roles => roles.filter(role => role.isPublic).sort((a, b) => b.displayOrder - a.displayOrder).map(role => ({
-					id: role.id,
-					name: role.name,
-					color: role.color,
-					iconUrl: role.iconUrl,
-					description: role.description,
-					isModerator: role.isModerator,
-					isAdministrator: role.isAdministrator,
-					displayOrder: role.displayOrder,
-				}))),
-				memo: memo,
-				moderationNote: iAmModerator ? (profile!.moderationNote ?? '') : undefined,
-			} : {}),
-
-			...(isDetailed && isMe ? {
-				avatarId: user.avatarId,
-				bannerId: user.bannerId,
-				isModerator: isModerator,
-				isAdmin: isAdmin,
-				injectFeaturedNote: profile!.injectFeaturedNote,
-				receiveAnnouncementEmail: profile!.receiveAnnouncementEmail,
-				alwaysMarkNsfw: profile!.alwaysMarkNsfw,
-				autoSensitive: profile!.autoSensitive,
-				carefulBot: profile!.carefulBot,
-				autoAcceptFollowed: profile!.autoAcceptFollowed,
-				noCrawle: profile!.noCrawle,
-				preventAiLearning: profile!.preventAiLearning,
-				isExplorable: user.isExplorable,
-				isDeleted: user.isDeleted,
-				twoFactorBackupCodesStock: profile?.twoFactorBackupSecret?.length === 5 ? 'full' : (profile?.twoFactorBackupSecret?.length ?? 0) > 0 ? 'partial' : 'none',
-				hideOnlineStatus: user.hideOnlineStatus,
-				hasUnreadSpecifiedNotes: this.noteUnreadsRepository.count({
-					where: { userId: user.id, isSpecified: true },
-					take: 1,
-				}).then(count => count > 0),
-				hasUnreadMentions: this.noteUnreadsRepository.count({
-					where: { userId: user.id, isMentioned: true },
-					take: 1,
-				}).then(count => count > 0),
-				hasUnreadAnnouncement: unreadAnnouncements!.length > 0,
-				unreadAnnouncements,
-				hasUnreadAntenna: this.getHasUnreadAntenna(user.id),
-				hasUnreadChannel: false, // 後方互換性のため
-				hasUnreadMessagingMessage: this.getHasUnreadMessagingMessage(user.id),
-				hasUnreadNotification: notificationsInfo?.hasUnread, // 後方互換性のため
-				hasPendingReceivedFollowRequest: this.getHasPendingReceivedFollowRequest(user.id),
-				unreadNotificationsCount: notificationsInfo?.unreadCount,
-				mutedWords: profile!.mutedWords,
-				hardMutedWords: profile!.hardMutedWords,
-				mutedInstances: profile!.mutedInstances,
-				mutingNotificationTypes: [], // 後方互換性のため
-				notificationRecieveConfig: profile!.notificationRecieveConfig,
-				emailNotificationTypes: profile!.emailNotificationTypes,
-				achievements: profile!.achievements,
-				loggedInDays: profile!.loggedInDates.length,
-				policies: this.roleService.getUserPolicies(user.id),
-			} : {}),
-
-			...(opts.includeSecrets ? {
-				email: profile!.email,
-				emailVerified: profile!.emailVerified,
-				securityKeysList: profile!.twoFactorEnabled
-					? this.userSecurityKeysRepository.find({
-						where: {
-							userId: user.id,
-						},
-						select: {
-							id: true,
-							name: true,
-							lastUsed: true,
-						},
-					})
-					: [],
-			} : {}),
-
-			...(relation ? {
-				isFollowing: relation.isFollowing,
-				isFollowed: relation.isFollowed,
-				hasPendingFollowRequestFromYou: relation.hasPendingFollowRequestFromYou,
-				hasPendingFollowRequestToYou: relation.hasPendingFollowRequestToYou,
-				isBlocking: relation.isBlocking,
-				isBlocked: relation.isBlocked,
-				isMuted: relation.isMuted,
-				isRenoteMuted: relation.isRenoteMuted,
-				notify: relation.following?.notify ?? 'none',
-				withReplies: relation.following?.withReplies ?? false,
-			} : {}),
-		} as Promiseable<Packed<S>>;
-
-		return await awaitAll(packed);
+			}),
+			emojis: self
+				.emoji_service
+				.populate_emojis(&mut con, user.emojis, user.host)
+				.await,
+			online_status,
+			set_federation_avatar_shape: user.set_federation_avatar_shape,
+			is_square_avatars: user.is_square_avatars,
+			id: user.id,
+		})
 	}
-
-*/
+	pub fn online_status(&self, user: &MiUser) -> OnlineStatus {
+		if user.hide_online_status {
+			OnlineStatus::unknown
+		} else if let Some(last_active_date) = user.last_active_date {
+			let elapsed = (Utc::now() - last_active_date.and_utc()).num_milliseconds();
+			if elapsed < USER_ONLINE_THRESHOLD {
+				OnlineStatus::online
+			} else if elapsed < USER_ACTIVE_THRESHOLD {
+				OnlineStatus::active
+			} else {
+				OnlineStatus::offline
+			}
+		} else {
+			OnlineStatus::unknown
+		}
+	}
+}
+pub trait PackedUser:
+	Clone + std::fmt::Debug + serde::ser::Serialize + serde::de::Deserialize<'static>
+{
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct PackedUserLite {
+	pub id: String,
+	pub name: Option<String>,
+	pub username: String,
+	pub host: Option<String>,
+	#[serde(rename = "avatarUrl")]
+	pub avatar_url: String,
+	#[serde(rename = "avatarBlurhash")]
+	pub avatar_blurhash: Option<String>,
+	#[serde(rename = "avatarDecorations")]
+	pub avatar_decorations: Vec<PackedAvatarDecoration>,
+	#[serde(rename = "isLocked")]
+	pub is_locked: bool,
+	#[serde(rename = "isBot")]
+	pub is_bot: bool,
+	#[serde(rename = "isCat")]
+	pub is_cat: bool,
+	#[serde(rename = "isProxy")]
+	pub is_proxy: bool,
+	#[serde(rename = "requireSigninToViewContents")]
+	pub require_signin_to_view_contents: bool,
+	#[serde(rename = "makeNotesFollowersOnlyBefore")]
+	pub make_notes_followers_only_before: Option<i32>,
+	#[serde(rename = "makeNotesHiddenBefore")]
+	pub make_notes_hidden_before: Option<i32>,
+	pub instance: Option<PackedInstance>,
+	pub emojis: HashMap<String, String>, //K=emoji:V=url
+	pub online_status: OnlineStatus,
+	//badgeRoles:Option<>,
+	#[serde(rename = "setFederationAvatarShape")]
+	pub set_federation_avatar_shape: Option<bool>,
+	#[serde(rename = "isSquareAvatars")]
+	pub is_square_avatars: Option<bool>,
+}
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum OnlineStatus {
+	#[serde(rename = "unknown")]
+	unknown,
+	#[serde(rename = "online")]
+	online,
+	#[serde(rename = "active")]
+	active,
+	#[serde(rename = "offline")]
+	offline,
+}
+impl PackedUser for PackedUserLite {}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct PackedInstance {
+	name: Option<String>,
+	softwareName: Option<String>,
+	softwareVersion: Option<String>,
+	iconUrl: Option<String>,
+	faviconUrl: Option<String>,
+	themeColor: Option<String>,
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct PackedAvatarDecoration {
+	id: String,
+	#[serde(skip_serializing_if = "Option::is_none")]
+	angle: Option<f64>,
+	#[serde(skip_serializing_if = "Option::is_none")]
+	#[serde(rename = "offsetY")]
+	offset_x: Option<f64>,
+	#[serde(skip_serializing_if = "Option::is_none")]
+	#[serde(rename = "offsetX")]
+	offset_y: Option<f64>,
+	#[serde(skip_serializing_if = "Option::is_none")]
+	scale: Option<f64>,
+	#[serde(skip_serializing_if = "Option::is_none")]
+	opacity: Option<f64>,
+	#[serde(rename = "flipH")]
+	flip_h: bool,
+	url: String,
+}
+impl From<MiAvatarDecoration> for PackedAvatarDecoration {
+	fn from(value: MiAvatarDecoration) -> Self {
+		Self {
+			id: value.id,
+			angle: value.angle,
+			offset_x: value.offset_x,
+			offset_y: value.offset_y,
+			scale: value.scale,
+			opacity: value.opacity,
+			flip_h: value.flip_h.unwrap_or(false),
+			url: String::new(),
+		}
+	}
+}

@@ -10,14 +10,43 @@ use redis::aio::MultiplexedConnection;
 use s3::Bucket;
 use serde::{Deserialize, Serialize};
 use service::{
-	announcement::AnnouncementService, drive::DriveService, event::EventService,
-	file_meta::FileMetaService, id_service::IdService, meta::MetaService, role::RoleService,
-	token_service::TokenService, user::UserService,
+	announcement::AnnouncementService, drive::DriveService, emoji::EmojiService,
+	event::EventService, fanout_timeline::FanoutTimelineService, file_meta::FileMetaService,
+	id_service::IdService, instance::InstanceService, meta::MetaService, note::NoteService,
+	role::RoleService, token_service::TokenService, user::UserService,
 };
+use tokio::sync::Mutex;
 mod api;
 mod browsersafe;
 mod models;
 mod service;
+
+#[derive(Clone)]
+pub struct ServerError {
+	status: StatusCode,
+	text: String,
+}
+impl IntoResponse for ServerError {
+	fn into_response(self) -> axum::response::Response {
+		(self.status, self.text).into_response()
+	}
+}
+impl ServerError {
+	pub fn new(status: StatusCode, text: String) -> Self {
+		Self { status, text }
+	}
+}
+impl<T> From<T> for ServerError
+where
+	T: std::fmt::Debug,
+{
+	fn from(value: T) -> Self {
+		Self {
+			status: StatusCode::INTERNAL_SERVER_ERROR,
+			text: format!("{:?}", value),
+		}
+	}
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ConfigFile {
@@ -51,6 +80,34 @@ pub struct MisskeyConfig {
 	redis: RedisConfig,
 	#[serde(rename = "redisForPubsub")]
 	redis_for_pubsub: Option<RedisConfig>,
+	#[serde(rename = "redisForTimelines")]
+	redis_for_timelines: Option<RedisConfig>,
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ParsedMisskeyConfig {
+	id: String,
+	url: String,
+	proxy_remote_files: bool,
+	media_proxy: Option<String>,
+	remote_proxy: Option<String>,
+	ap_file_base_url: Option<String>,
+	host: String,
+}
+impl From<MisskeyConfig> for ParsedMisskeyConfig {
+	fn from(f: MisskeyConfig) -> Self {
+		let url = reqwest::Url::parse(f.url.as_str()).expect("url parse");
+		let url_string = url.to_string();
+		let host = url.host().expect("bad server url config").to_string();
+		Self {
+			id: f.id,
+			url: url_string,
+			proxy_remote_files: f.proxy_remote_files.unwrap_or(false),
+			media_proxy: f.media_proxy,
+			remote_proxy: f.remote_proxy,
+			ap_file_base_url: f.ap_file_base_url,
+			host,
+		}
+	}
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct S3Config {
@@ -96,16 +153,19 @@ impl DBConfig {
 pub struct Context {
 	bucket: Box<Bucket>,
 	config: Arc<ConfigFile>,
-	misskey_config: Arc<MisskeyConfig>,
-	redis: MultiplexedConnection,
+	pub misskey_config: Arc<ParsedMisskeyConfig>,
+	pub redis: MultiplexedConnection,
 	client: reqwest::Client,
-	token_service: TokenService,
-	role_service: RoleService,
-	drive_service: DriveService,
-	event_service: EventService,
-	raw_db: DataBase,
-	file_service: FileMetaService,
-	user_service: UserService,
+	pub token_service: TokenService,
+	pub role_service: RoleService,
+	pub drive_service: DriveService,
+	pub event_service: EventService,
+	pub raw_db: DataBase,
+	pub file_service: FileMetaService,
+	pub user_service: UserService,
+	pub meta_service: MetaService,
+	pub fanout_timeline_service: FanoutTimelineService,
+	pub note_service: NoteService,
 }
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 enum FilterType {
@@ -194,9 +254,11 @@ fn main() {
 			.write_all(default_config.as_bytes())
 			.unwrap();
 	}
-	let misskey_config: MisskeyConfig =
+	let mut misskey_config: MisskeyConfig =
 		serde_yaml::from_reader(std::fs::File::open(&".config/default.yml").unwrap()).unwrap();
+	let parsed_misskey_config: ParsedMisskeyConfig = misskey_config.clone().into();
 	let misskey_config = Arc::new(misskey_config);
+	let parsed_misskey_config = Arc::new(parsed_misskey_config);
 	let file_service = FileMetaService::new();
 	let config: ConfigFile =
 		serde_json::from_reader(std::fs::File::open(&config_path).unwrap()).unwrap();
@@ -227,6 +289,10 @@ fn main() {
 		.redis_for_pubsub
 		.as_ref()
 		.map(|redis_for_pubsub| redis::Client::open(redis_for_pubsub.to_url()).unwrap());
+	let redis_for_timelines = misskey_config
+		.redis_for_timelines
+		.as_ref()
+		.map(|redis_for_timelines| redis::Client::open(redis_for_timelines.to_url()).unwrap());
 	let rt = tokio::runtime::Builder::new_multi_thread()
 		.enable_all()
 		.build()
@@ -244,18 +310,32 @@ fn main() {
 				.ok(),
 			None => None,
 		};
+		let redis_for_timelines = match redis_for_timelines {
+			Some(redis_for_timelines) => redis_for_timelines
+				.get_multiplexed_tokio_connection()
+				.await
+				.ok(),
+			None => None,
+		}
+		.unwrap_or(redis.clone());
 		let db = DataBase::open(&misskey_config.db.to_url()).await.unwrap();
 		let id_service = IdService::new(&misskey_config);
 		let token_service = TokenService::new(db.clone(), id_service.clone());
 		let meta_service = MetaService::new(db.clone());
 		let role_service = RoleService::new(db.clone(), meta_service.clone());
 		let announcement_service = AnnouncementService::new(db.clone());
+		let emoji_service = EmojiService::new(db.clone(), parsed_misskey_config.host.clone());
+		let instance_service = InstanceService::new(db.clone(), redis.clone());
 		let user_service = UserService::new(
+			parsed_misskey_config.clone(),
 			redis.clone(),
 			db.clone(),
 			id_service.clone(),
 			role_service.clone(),
 			announcement_service,
+			emoji_service.clone(),
+			instance_service.clone(),
+			meta_service.clone(),
 		);
 		let event_service = EventService::new(
 			redis_for_pubsub.clone().unwrap_or(redis.clone()),
@@ -264,13 +344,36 @@ fn main() {
 		let drive_service = DriveService::new(
 			misskey_config.clone(),
 			db.clone(),
-			meta_service,
+			meta_service.clone(),
+			role_service.clone(),
+			id_service.clone(),
+			user_service.clone(),
+			event_service.clone(),
+		);
+		let note_service = NoteService::new(
+			misskey_config.clone(),
+			db.clone(),
+			meta_service.clone(),
+			role_service.clone(),
+			drive_service.clone(),
+			id_service.clone(),
+			user_service.clone(),
+			emoji_service.clone(),
+			event_service.clone(),
+		);
+		let fanout_timeline_service = FanoutTimelineService::new(
+			parsed_misskey_config.clone(),
+			db.clone(),
+			meta_service.clone(),
 			role_service.clone(),
 			id_service,
 			user_service.clone(),
 			event_service.clone(),
+			note_service.clone(),
+			redis_for_timelines,
 		);
 		let client = reqwest::Client::new();
+
 		let arg_tup = Context {
 			bucket,
 			config,
@@ -283,7 +386,10 @@ fn main() {
 			file_service,
 			raw_db: db,
 			user_service,
-			misskey_config,
+			meta_service,
+			misskey_config: parsed_misskey_config,
+			note_service,
+			fanout_timeline_service,
 		};
 		let http_addr: SocketAddr = arg_tup.config.bind_addr.parse().unwrap();
 		let app = api::endpoints::route(&arg_tup);
@@ -394,6 +500,27 @@ impl Context {
 pub struct DataBase(diesel_async::pooled_connection::bb8::Pool<AsyncPgConnection>);
 pub type DBConnection<'a> =
 	diesel_async::pooled_connection::bb8::PooledConnection<'a, AsyncPgConnection>;
+
+pub enum DBConnectionRef<'a, 'b> {
+	Borrowed(&'b mut DBConnection<'a>),
+	Mutex(Arc<Mutex<&'b mut DBConnection<'a>>>),
+}
+impl<'a, 'b> From<&'b mut DBConnection<'a>> for DBConnectionRef<'a, 'b> {
+	fn from(value: &'b mut DBConnection<'a>) -> Self {
+		Self::Borrowed(value)
+	}
+}
+impl<'a, 'b> From<Arc<Mutex<&'b mut DBConnection<'a>>>> for DBConnectionRef<'a, 'b> {
+	fn from(value: Arc<Mutex<&'b mut DBConnection<'a>>>) -> Self {
+		value.lock();
+		Self::Mutex(value)
+	}
+}
+impl<'a, 'b> DBConnectionRef<'a, 'b> {
+	pub fn new_mutex(value: &'b mut DBConnection<'a>) -> Self {
+		Self::Mutex(Arc::new(Mutex::new(value)))
+	}
+}
 impl DataBase {
 	pub async fn open(database_url: &str) -> Result<Self, String> {
 		let config = diesel_async::pooled_connection::AsyncDieselConnectionManager::<
