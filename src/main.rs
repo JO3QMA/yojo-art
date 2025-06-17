@@ -1,7 +1,6 @@
 use std::{io::Write, net::SocketAddr, sync::Arc};
 
 use axum::{
-	Router,
 	http::StatusCode,
 	response::{IntoResponse, Response},
 };
@@ -15,7 +14,8 @@ use service::{
 	id_service::IdService, instance::InstanceService, meta::MetaService, note::NoteService,
 	role::RoleService, token_service::TokenService, user::UserService,
 };
-use tokio::sync::Mutex;
+
+use crate::service::timeline::TimelineService;
 mod api;
 mod browsersafe;
 mod models;
@@ -164,6 +164,7 @@ pub struct Context {
 	pub file_service: FileMetaService,
 	pub user_service: UserService,
 	pub meta_service: MetaService,
+	pub timeline_service: TimelineService,
 	pub fanout_timeline_service: FanoutTimelineService,
 	pub note_service: NoteService,
 }
@@ -361,6 +362,8 @@ fn main() {
 			emoji_service.clone(),
 			event_service.clone(),
 		);
+		let timeline_service =
+			TimelineService::new(db.clone(), note_service.clone(), id_service.clone());
 		let fanout_timeline_service = FanoutTimelineService::new(
 			parsed_misskey_config.clone(),
 			db.clone(),
@@ -371,6 +374,7 @@ fn main() {
 			event_service.clone(),
 			note_service.clone(),
 			redis_for_timelines,
+			timeline_service.clone(),
 		);
 		let client = reqwest::Client::new();
 
@@ -389,6 +393,7 @@ fn main() {
 			meta_service,
 			misskey_config: parsed_misskey_config,
 			note_service,
+			timeline_service,
 			fanout_timeline_service,
 		};
 		let http_addr: SocketAddr = arg_tup.config.bind_addr.parse().unwrap();
@@ -501,26 +506,6 @@ pub struct DataBase(diesel_async::pooled_connection::bb8::Pool<AsyncPgConnection
 pub type DBConnection<'a> =
 	diesel_async::pooled_connection::bb8::PooledConnection<'a, AsyncPgConnection>;
 
-pub enum DBConnectionRef<'a, 'b> {
-	Borrowed(&'b mut DBConnection<'a>),
-	Mutex(Arc<Mutex<&'b mut DBConnection<'a>>>),
-}
-impl<'a, 'b> From<&'b mut DBConnection<'a>> for DBConnectionRef<'a, 'b> {
-	fn from(value: &'b mut DBConnection<'a>) -> Self {
-		Self::Borrowed(value)
-	}
-}
-impl<'a, 'b> From<Arc<Mutex<&'b mut DBConnection<'a>>>> for DBConnectionRef<'a, 'b> {
-	fn from(value: Arc<Mutex<&'b mut DBConnection<'a>>>) -> Self {
-		value.lock();
-		Self::Mutex(value)
-	}
-}
-impl<'a, 'b> DBConnectionRef<'a, 'b> {
-	pub fn new_mutex(value: &'b mut DBConnection<'a>) -> Self {
-		Self::Mutex(Arc::new(Mutex::new(value)))
-	}
-}
 impl DataBase {
 	pub async fn open(database_url: &str) -> Result<Self, String> {
 		let config = diesel_async::pooled_connection::AsyncDieselConnectionManager::<
@@ -535,7 +520,7 @@ impl DataBase {
 		};
 		Ok(Self(pool))
 	}
-	pub async fn get(&self) -> Option<DBConnection> {
+	pub async fn get_writeable(&self) -> Option<DBConnection> {
 		match self.0.get().await {
 			Ok(c) => Some(c),
 			Err(e) => {
@@ -543,5 +528,10 @@ impl DataBase {
 				None
 			}
 		}
+	}
+	pub async fn get_read_only(
+		&self,
+	) -> Result<DBConnection, diesel_async::pooled_connection::bb8::RunError> {
+		self.0.get().await
 	}
 }
