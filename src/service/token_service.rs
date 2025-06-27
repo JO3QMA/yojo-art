@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
 	DBConnection, DataBase, ServerError,
 	models::{access_token::MiAccessToken, user::MiUser},
+	service::role::{RolePolicies, RoleService},
 };
 
 use super::id_service::IdService;
@@ -17,17 +18,21 @@ pub struct TokenService {
 	db: DataBase,
 	id_service: IdService,
 }
+#[derive(Default, Clone, Debug)]
 pub enum TokenPermission {
 	Token(MiAccessToken),
 	Master(MiUser),
+	#[default]
 	None,
 }
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PermissionKind {
 	#[serde(rename = "write:drive")]
 	WriteDrive,
 	#[serde(rename = "read:drive")]
 	ReadDrive,
+	#[serde(rename = "read:account")]
+	ReadAccount,
 }
 impl TokenPermission {
 	pub fn is_allow(&self, key: PermissionKind) -> bool {
@@ -51,7 +56,7 @@ impl TokenPermission {
 			TokenPermission::None => Err("guest user".into()),
 		}
 	}
-	pub async fn as_user_id(&self) -> Option<&String> {
+	pub fn as_user_id(&self) -> Option<&String> {
 		match self {
 			TokenPermission::Token(mi_access_token) => Some(&mi_access_token.user_id),
 			TokenPermission::Master(mi_user) => Some(&mi_user.id),
@@ -66,6 +71,11 @@ impl TokenPermission {
 			TokenPermission::Master(mi_user) => Ok(mi_user),
 			TokenPermission::None => Err("guest user".into()),
 		}
+	}
+	pub async fn get_policies(&self, role_service: &RoleService) -> RolePolicies {
+		role_service
+			.get_user_policies(self.as_user_id().map(|x| x.as_str()))
+			.await
 	}
 }
 impl TokenService {
