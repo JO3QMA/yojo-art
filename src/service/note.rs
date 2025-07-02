@@ -142,8 +142,9 @@ impl NoteService {
 				None => Ok(None),
 			}
 		};
-		let (packed_note,renote,reply) = futures_util::future::join3(self.pack(note, me_id, user_cache), renote, reply).await;
-		let mut packed_note=packed_note?;
+		let (packed_note, renote, reply) =
+			futures_util::future::join3(self.pack(note, me_id, user_cache), renote, reply).await;
+		let mut packed_note = packed_note?;
 		packed_note.renote = renote?;
 		packed_note.reply = reply?;
 		Ok(packed_note)
@@ -214,9 +215,9 @@ impl NoteService {
 			let k = self.emoji_service.normalize_reaction(k);
 			reactions.0.insert(k, v);
 		}
-		let files = if note.file_ids.is_empty(){
+		let files = if note.file_ids.is_empty() {
 			vec![]
-		}else{
+		} else {
 			let files: Vec<MiDriveFile> = {
 				use crate::models::drive_file::drive_file::dsl::drive_file;
 				use crate::models::drive_file::drive_file::dsl::*;
