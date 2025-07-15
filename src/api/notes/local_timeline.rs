@@ -62,7 +62,6 @@ pub async fn post(
 		limit: parms.limit.unwrap_or(10),
 		with_replies: parms.with_replies.unwrap_or(false),
 	};
-	let mut user_cache = HashMap::new();
 	let mut hints = TimelineHints::default();
 	let notes = if meta.other.enable_fanout_timeline {
 		ctx.fanout_timeline_service
@@ -73,21 +72,10 @@ pub async fn post(
 			.get_ltl(user_id, &mut hints, &opts)
 			.await
 	}?;
-	let mut note_cache = HashMap::new();
-	let mut packed_notes = vec![];
-	for note in notes {
-		let packed_note = ctx
-			.note_service
-			.pack_detail(
-				note,
-				user_id,
-				&mut user_cache,
-				&mut note_cache,
-				&mut hints.note_relation_note,
-			)
-			.await?;
-		packed_notes.push(packed_note);
-	}
+	let packed_notes = ctx
+		.note_service
+		.pack_detail_many(notes.into_iter(), user_id, &hints.note_relation_note)
+		.await;
 	let mut header = axum::http::header::HeaderMap::new();
 	header.insert("Content-Type", "application/json".parse().unwrap());
 	Ok((

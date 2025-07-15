@@ -230,6 +230,17 @@ impl MiNote {
 			.first(con)
 			.await
 	}
+	pub async fn load_by_ids(
+		con: &mut DBConnection<'_>,
+		note_id: impl Iterator<Item = &String>,
+	) -> Result<Vec<Self>, diesel::result::Error> {
+		use self::note::dsl::note;
+		use self::note::dsl::*;
+		note.filter(id.eq_any(note_id))
+			.select(Self::as_select())
+			.load(con)
+			.await
+	}
 }
 /*
 	@Column('varchar', {
