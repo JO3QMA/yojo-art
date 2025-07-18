@@ -43,7 +43,7 @@ where
 	fn from(value: T) -> Self {
 		Self {
 			status: StatusCode::INTERNAL_SERVER_ERROR,
-			text: format!("{:?}", value),
+			text: format!("{} {:?}",std::any::type_name::<T>(), value),
 		}
 	}
 }
