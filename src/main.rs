@@ -16,9 +16,10 @@ use service::{
 };
 
 use crate::service::timeline::TimelineService;
+pub use yojo_art_models as models;
+pub use yojo_art_models::DBConnection;
 mod api;
 mod browsersafe;
-mod models;
 mod service;
 
 #[derive(Clone)]
@@ -454,8 +455,6 @@ impl Context {
 }
 #[derive(Clone, Debug)]
 pub struct DataBase(diesel_async::pooled_connection::bb8::Pool<AsyncPgConnection>);
-pub type DBConnection<'a> =
-	diesel_async::pooled_connection::bb8::PooledConnection<'a, AsyncPgConnection>;
 
 impl DataBase {
 	pub async fn open(database_url: &str) -> Result<Self, String> {
