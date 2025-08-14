@@ -23,3 +23,6 @@ pub mod user;
 pub mod user_memo;
 pub mod user_note_pining;
 pub mod user_profile;
+
+pub type DBConnection<'a> =
+	diesel_async::pooled_connection::bb8::PooledConnection<'a, diesel_async::AsyncPgConnection>;
