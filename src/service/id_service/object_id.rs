@@ -81,7 +81,6 @@ mod tests {
         assert_eq!(get_time(1000).len(), 8);
         assert_eq!(get_time(1632482766000).len(), 8);
     }
-}
 
     #[test]
     fn test_is_safe_t() {
