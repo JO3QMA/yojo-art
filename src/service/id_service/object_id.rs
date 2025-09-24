@@ -82,3 +82,43 @@ mod tests {
         assert_eq!(get_time(1632482766000).len(), 8);
     }
 }
+
+    #[test]
+    fn test_is_safe_t() {
+        let service = ObjectIdService::new();
+        assert!(service.is_safe_t(1000));
+        assert!(!service.is_safe_t(0));
+        assert!(!service.is_safe_t(-1000));
+    }
+
+    #[test]
+    fn test_gen_id() {
+        let service = ObjectIdService::new();
+        let id = service.gen_id(1000);
+        assert_eq!(id.len(), 24); // 8 chars for time + 16 chars for random
+        assert!(id.chars().all(|c| CHARS.contains(c)));
+    }
+
+    #[test]
+    fn test_parse() {
+        let service = ObjectIdService::new();
+        let time = 1632482766000; // Example timestamp
+        let id = service.gen_id(time);
+        let parsed = service.parse(&id);
+        assert_eq!(parsed, Some(time));
+    }
+
+    #[test]
+    fn test_get_time() {
+        assert_eq!(get_time(0), "0");
+        assert_eq!(get_time(-1000), "0");
+        
+        // Test positive timestamps
+        assert_eq!(get_time(1000), "000003e8");
+        assert_eq!(get_time(1632482766000), "6149d96e");
+        
+        // Test padding
+        assert_eq!(get_time(1000).len(), 8);
+        assert_eq!(get_time(1632482766000).len(), 8);
+    }
+}
